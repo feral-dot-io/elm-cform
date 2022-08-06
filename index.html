@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Example</title>
+  <title>Example.Composable</title>
   <style>body { padding: 0; margin: 0; }</style>
 </head>
 
@@ -10568,176 +10568,11 @@ var $elm$core$Basics$never = function (_v0) {
 	}
 };
 var $elm$browser$Browser$element = _Browser_element;
-var $author$project$Example$MyCheckbox = {$: 'MyCheckbox'};
-var $author$project$Example$MyCheckboxes = function (a) {
-	return {$: 'MyCheckboxes', a: a};
-};
-var $author$project$Example$MyRadio = function (a) {
-	return {$: 'MyRadio', a: a};
-};
-var $author$project$Example$MySelect = {$: 'MySelect'};
-var $author$project$Example$MyText = {$: 'MyText'};
-var $author$project$Example$Zebra = {$: 'Zebra'};
-var $author$project$Example$animalToString = function (a) {
-	switch (a.$) {
-		case 'Cat':
-			return 'cat';
-		case 'Dog':
-			return 'dog';
-		default:
-			return 'zebra';
-	}
-};
 var $author$project$Example$Example = F5(
 	function (myText, myCheckbox, myRadio, mySelect, myCheckboxes) {
 		return {myCheckbox: myCheckbox, myCheckboxes: myCheckboxes, myRadio: myRadio, mySelect: mySelect, myText: myText};
 	});
 var $author$project$Example$emptyExample = A5($author$project$Example$Example, '', false, $elm$core$Maybe$Nothing, $elm$core$Maybe$Nothing, _List_Nil);
-var $author$project$Html$Form$CheckedControl = function (a) {
-	return {$: 'CheckedControl', a: a};
-};
-var $author$project$Html$Form$Control = function (a) {
-	return {$: 'Control', a: a};
-};
-var $author$project$Html$Form$updateDb = F4(
-	function (setter, name, value, db) {
-		return _Utils_update(
-			db,
-			{
-				out: A2(setter, value, db.out),
-				state: function () {
-					if (value.$ === 'Just') {
-						var str = value.a;
-						return A3($elm$core$Dict$insert, name, str, db.state);
-					} else {
-						return A2($elm$core$Dict$remove, name, db.state);
-					}
-				}()
-			});
-	});
-var $author$project$Html$Form$checkedControl = F3(
-	function (name, value, setter) {
-		return $author$project$Html$Form$Control(
-			{
-				name: name,
-				update: $author$project$Html$Form$updateDb(
-					function (state) {
-						return setter(
-							_Utils_eq(
-								state,
-								$elm$core$Maybe$Just(value)));
-					}),
-				value: $author$project$Html$Form$CheckedControl(value)
-			});
-	});
-var $elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
-	});
-var $author$project$Html$Form$StringControl = {$: 'StringControl'};
-var $author$project$Html$Form$stringControl = F2(
-	function (name, setter) {
-		return $author$project$Html$Form$Control(
-			{
-				name: name,
-				update: $author$project$Html$Form$updateDb(
-					A2(
-						$elm$core$Basics$composeR,
-						$elm$core$Maybe$withDefault(''),
-						setter)),
-				value: $author$project$Html$Form$StringControl
-			});
-	});
-var $author$project$Example$Cat = {$: 'Cat'};
-var $author$project$Example$Dog = {$: 'Dog'};
-var $author$project$Example$stringToAnimal = function (str) {
-	switch (str) {
-		case 'cat':
-			return $elm$core$Maybe$Just($author$project$Example$Cat);
-		case 'dog':
-			return $elm$core$Maybe$Just($author$project$Example$Dog);
-		case 'zebra':
-			return $elm$core$Maybe$Just($author$project$Example$Zebra);
-		default:
-			return $elm$core$Maybe$Nothing;
-	}
-};
-var $author$project$Example$exampleForm = function (key) {
-	switch (key.$) {
-		case 'MyText':
-			return A2(
-				$author$project$Html$Form$stringControl,
-				'myText',
-				F2(
-					function (v, d) {
-						return _Utils_update(
-							d,
-							{myText: v});
-					}));
-		case 'MyCheckbox':
-			return A3(
-				$author$project$Html$Form$checkedControl,
-				'myCheckbox',
-				'y',
-				F2(
-					function (v, d) {
-						return _Utils_update(
-							d,
-							{myCheckbox: v});
-					}));
-		case 'MyRadio':
-			var animal = key.a;
-			return A3(
-				$author$project$Html$Form$checkedControl,
-				'myRadio',
-				$author$project$Example$animalToString(animal),
-				F2(
-					function (v, d) {
-						return _Utils_update(
-							d,
-							{
-								myRadio: v ? $elm$core$Maybe$Just(animal) : $elm$core$Maybe$Nothing
-							});
-					}));
-		case 'MySelect':
-			return A2(
-				$author$project$Html$Form$stringControl,
-				'mySelect',
-				F2(
-					function (v, d) {
-						return _Utils_update(
-							d,
-							{
-								mySelect: $author$project$Example$stringToAnimal(v)
-							});
-					}));
-		default:
-			var animal = key.a;
-			var id = $author$project$Example$animalToString(animal);
-			return A3(
-				$author$project$Html$Form$checkedControl,
-				'myCheckboxes-' + id,
-				id,
-				F2(
-					function (v, d) {
-						return _Utils_update(
-							d,
-							{
-								myCheckboxes: v ? A2($elm$core$List$cons, animal, d.myCheckboxes) : A2(
-									$elm$core$List$filter,
-									$elm$core$Basics$neq(animal),
-									d.myCheckboxes)
-							});
-					}));
-	}
-};
 var $author$project$Html$Form$Model = function (a) {
 	return {$: 'Model', a: a};
 };
@@ -10752,69 +10587,13 @@ var $author$project$Html$Form$init = function (emptyOut) {
 	return $author$project$Html$Form$Model(
 		$author$project$Html$Form$emptyDB(emptyOut));
 };
-var $author$project$Html$Form$setChecked = F4(
-	function (form, ctrlKey, checked, _v0) {
-		var db = _v0.a;
-		var _v1 = form(ctrlKey);
-		var ctrl = _v1.a;
-		var val = function () {
-			var _v2 = ctrl.value;
-			if (_v2.$ === 'CheckedControl') {
-				var constant = _v2.a;
-				return checked ? $elm$core$Maybe$Just(constant) : $elm$core$Maybe$Nothing;
-			} else {
-				return $elm$core$Maybe$Nothing;
-			}
-		}();
-		return $author$project$Html$Form$Model(
-			A3(ctrl.update, ctrl.name, val, db));
-	});
-var $author$project$Html$Form$set = F4(
-	function (form, ctrlKey, val, _v0) {
-		var db = _v0.a;
-		var _v1 = form(ctrlKey);
-		var ctrl = _v1.a;
-		return $author$project$Html$Form$Model(
-			A3(ctrl.update, ctrl.name, val, db));
-	});
-var $author$project$Html$Form$setString = F4(
-	function (form, ctrl, val, model) {
-		return A4(
-			$author$project$Html$Form$set,
-			form,
-			ctrl,
-			$elm$core$Maybe$Just(val),
-			model);
-	});
-var $author$project$Example$init = function (_v0) {
+var $author$project$Composable$Form$init = function (emptyOut) {
+	return $author$project$Html$Form$init(emptyOut);
+};
+var $author$project$Example$Composable$init = function (_v0) {
 	return _Utils_Tuple2(
 		{
-			form: A4(
-				$author$project$Html$Form$setChecked,
-				$author$project$Example$exampleForm,
-				$author$project$Example$MyCheckboxes($author$project$Example$Zebra),
-				true,
-				A4(
-					$author$project$Html$Form$setString,
-					$author$project$Example$exampleForm,
-					$author$project$Example$MySelect,
-					$author$project$Example$animalToString($author$project$Example$Zebra),
-					A4(
-						$author$project$Html$Form$setChecked,
-						$author$project$Example$exampleForm,
-						$author$project$Example$MyRadio($author$project$Example$Zebra),
-						true,
-						A4(
-							$author$project$Html$Form$setChecked,
-							$author$project$Example$exampleForm,
-							$author$project$Example$MyCheckbox,
-							true,
-							A4(
-								$author$project$Html$Form$setString,
-								$author$project$Example$exampleForm,
-								$author$project$Example$MyText,
-								'hello world',
-								$author$project$Html$Form$init($author$project$Example$emptyExample)))))),
+			form: $author$project$Composable$Form$init($author$project$Example$emptyExample),
 			submitted: _List_Nil
 		},
 		$elm$core$Platform$Cmd$none);
@@ -10870,6 +10649,567 @@ var $author$project$Html$Form$onSubmit = F4(
 var $author$project$Html$Form$autoSubmit = $author$project$Html$Form$onSubmit(
 	_List_fromArray(
 		[$author$project$Html$Form$SubmitOnInput, $author$project$Html$Form$SubmitOnForm]));
+var $author$project$Composable$Form$autoSubmit = $author$project$Html$Form$autoSubmit;
+var $author$project$Example$Cat = {$: 'Cat'};
+var $author$project$Example$Dog = {$: 'Dog'};
+var $author$project$Example$Zebra = {$: 'Zebra'};
+var $author$project$Example$animalToString = function (a) {
+	switch (a.$) {
+		case 'Cat':
+			return 'cat';
+		case 'Dog':
+			return 'dog';
+		default:
+			return 'zebra';
+	}
+};
+var $author$project$Composable$Form$Form = function (a) {
+	return {$: 'Form', a: a};
+};
+var $author$project$Composable$Form$append = F2(
+	function (field, _v0) {
+		var fields = _v0.a;
+		return $author$project$Composable$Form$Form(
+			_Utils_ap(
+				fields,
+				_List_fromArray(
+					[field])));
+	});
+var $author$project$Composable$Form$Field = function (a) {
+	return {$: 'Field', a: a};
+};
+var $author$project$Html$Form$OnBlur = function (a) {
+	return {$: 'OnBlur', a: a};
+};
+var $author$project$Html$Form$OnInput = F2(
+	function (a, b) {
+		return {$: 'OnInput', a: a, b: b};
+	});
+var $author$project$Html$Form$alwaysTargetValueDecoder = A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$html$Html$Events$targetValue);
+var $elm$json$Json$Decode$bool = _Json_decodeBool;
+var $elm$html$Html$Events$targetChecked = A2(
+	$elm$json$Json$Decode$at,
+	_List_fromArray(
+		['target', 'checked']),
+	$elm$json$Json$Decode$bool);
+var $author$project$Html$Form$checkedDecoder = function (constant) {
+	return A2(
+		$elm$json$Json$Decode$map,
+		function (checked) {
+			return checked ? $elm$core$Maybe$Just(constant) : $elm$core$Maybe$Nothing;
+		},
+		$elm$html$Html$Events$targetChecked);
+};
+var $elm$html$Html$Attributes$name = $elm$html$Html$Attributes$stringProperty('name');
+var $elm$html$Html$Events$onBlur = function (msg) {
+	return A2(
+		$elm$html$Html$Events$on,
+		'blur',
+		$elm$json$Json$Decode$succeed(msg));
+};
+var $author$project$Html$Form$eventAttrs = F3(
+	function (toMsg, form, ctrlKey) {
+		var _v0 = form(ctrlKey);
+		var ctrl = _v0.a;
+		var eventDecoder = function () {
+			var _v1 = ctrl.value;
+			if (_v1.$ === 'StringControl') {
+				return $author$project$Html$Form$alwaysTargetValueDecoder;
+			} else {
+				var value = _v1.a;
+				return $author$project$Html$Form$checkedDecoder(value);
+			}
+		}();
+		return _List_fromArray(
+			[
+				A2(
+				$elm$html$Html$Events$stopPropagationOn,
+				'input',
+				A2(
+					$elm$json$Json$Decode$map,
+					function (event) {
+						return _Utils_Tuple2(
+							toMsg(
+								A2($author$project$Html$Form$OnInput, ctrlKey, event)),
+							true);
+					},
+					eventDecoder)),
+				$elm$html$Html$Events$onBlur(
+				toMsg(
+					$author$project$Html$Form$OnBlur(ctrlKey))),
+				$elm$html$Html$Attributes$name(ctrl.name)
+			]);
+	});
+var $elm$json$Json$Encode$bool = _Json_wrap;
+var $elm$html$Html$Attributes$boolProperty = F2(
+	function (key, bool) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			$elm$json$Json$Encode$bool(bool));
+	});
+var $elm$html$Html$Attributes$checked = $elm$html$Html$Attributes$boolProperty('checked');
+var $author$project$Html$Form$stateAttrs = F3(
+	function (form, ctrlKey, _v0) {
+		var db = _v0.a;
+		var _v1 = form(ctrlKey);
+		var ctrl = _v1.a;
+		var currentState = A2(
+			$elm$core$Maybe$withDefault,
+			'',
+			A2($elm$core$Dict$get, ctrl.name, db.state));
+		var _v2 = ctrl.value;
+		if (_v2.$ === 'StringControl') {
+			return _List_fromArray(
+				[
+					$elm$html$Html$Attributes$value(currentState)
+				]);
+		} else {
+			var value = _v2.a;
+			return _List_fromArray(
+				[
+					$elm$html$Html$Attributes$value(value),
+					$elm$html$Html$Attributes$checked(
+					_Utils_eq(currentState, value))
+				]);
+		}
+	});
+var $author$project$Html$Form$attrs = F4(
+	function (toMsg, form, ctrl, model) {
+		return _Utils_ap(
+			A3($author$project$Html$Form$eventAttrs, toMsg, form, ctrl),
+			A3($author$project$Html$Form$stateAttrs, form, ctrl, model));
+	});
+var $author$project$Html$Form$checkbox = F4(
+	function (toMsg, form, control, model) {
+		return A2(
+			$elm$html$Html$input,
+			A2(
+				$elm$core$List$cons,
+				$elm$html$Html$Attributes$type_('checkbox'),
+				A4($author$project$Html$Form$attrs, toMsg, form, control, model)),
+			_List_Nil);
+	});
+var $author$project$Html$Form$CheckedControl = function (a) {
+	return {$: 'CheckedControl', a: a};
+};
+var $author$project$Html$Form$Control = function (a) {
+	return {$: 'Control', a: a};
+};
+var $author$project$Html$Form$updateDb = F4(
+	function (setter, name, value, db) {
+		return _Utils_update(
+			db,
+			{
+				out: A2(setter, value, db.out),
+				state: function () {
+					if (value.$ === 'Just') {
+						var str = value.a;
+						return A3($elm$core$Dict$insert, name, str, db.state);
+					} else {
+						return A2($elm$core$Dict$remove, name, db.state);
+					}
+				}()
+			});
+	});
+var $author$project$Html$Form$checkedControl = F3(
+	function (name, value, setter) {
+		return $author$project$Html$Form$Control(
+			{
+				name: name,
+				update: $author$project$Html$Form$updateDb(
+					function (state) {
+						return setter(
+							_Utils_eq(
+								state,
+								$elm$core$Maybe$Just(value)));
+					}),
+				value: $author$project$Html$Form$CheckedControl(value)
+			});
+	});
+var $author$project$Composable$Form$keyToString = function (key) {
+	return A2(
+		$elm$core$String$join,
+		'-',
+		A2($elm$core$List$map, $elm$core$String$fromInt, key));
+};
+var $author$project$Composable$Form$onLeaf = F3(
+	function (cb, name, _v0) {
+		return cb(
+			$author$project$Composable$Form$keyToString(name));
+	});
+var $author$project$Composable$Form$checkboxField = function (set) {
+	return $author$project$Composable$Form$Field(
+		{
+			control: $author$project$Composable$Form$onLeaf(
+				function (name) {
+					return A3($author$project$Html$Form$checkedControl, name, 'y', set);
+				}),
+			view: F2(
+				function (_v0, ctrl) {
+					var form = _v0.form;
+					var model = _v0.model;
+					return _List_fromArray(
+						[
+							A4($author$project$Html$Form$checkbox, $elm$core$Basics$identity, form, ctrl, model)
+						]);
+				})
+		});
+};
+var $author$project$Composable$Form$empty = $author$project$Composable$Form$Form(_List_Nil);
+var $author$project$Composable$Form$checkboxesForm = F4(
+	function (insert, remove, toString, options) {
+		var checkbox = function (opt) {
+			return $author$project$Composable$Form$Field(
+				{
+					control: $author$project$Composable$Form$onLeaf(
+						function (key) {
+							return A3(
+								$author$project$Html$Form$checkedControl,
+								key,
+								toString(opt),
+								function (v) {
+									return (v ? insert : remove)(opt);
+								});
+						}),
+					view: F2(
+						function (_v0, ctrl) {
+							var form = _v0.form;
+							var model = _v0.model;
+							return _List_fromArray(
+								[
+									A4($author$project$Html$Form$checkbox, $elm$core$Basics$identity, form, ctrl, model)
+								]);
+						})
+				});
+		};
+		return A3(
+			$elm$core$List$foldl,
+			A2($elm$core$Basics$composeR, checkbox, $author$project$Composable$Form$append),
+			$author$project$Composable$Form$empty,
+			options);
+	});
+var $author$project$Html$Form$StringControl = {$: 'StringControl'};
+var $author$project$Html$Form$emptyControl = $author$project$Html$Form$Control(
+	{
+		name: '',
+		update: F3(
+			function (_v0, _v1, out) {
+				return out;
+			}),
+		value: $author$project$Html$Form$StringControl
+	});
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $elm_community$list_extra$List$Extra$getAt = F2(
+	function (idx, xs) {
+		return (idx < 0) ? $elm$core$Maybe$Nothing : $elm$core$List$head(
+			A2($elm$core$List$drop, idx, xs));
+	});
+var $elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return $elm$core$Maybe$Just(
+				f(value));
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $author$project$Composable$Form$toBaseForm_ = F3(
+	function (fields, name, key) {
+		if (key.b) {
+			var i = key.a;
+			var rem = key.b;
+			return A2(
+				$elm$core$Maybe$withDefault,
+				$author$project$Html$Form$emptyControl,
+				A2(
+					$elm$core$Maybe$map,
+					function (_v1) {
+						var field = _v1.a;
+						return A2(field.control, name, rem);
+					},
+					A2($elm_community$list_extra$List$Extra$getAt, i, fields)));
+		} else {
+			return $author$project$Html$Form$emptyControl;
+		}
+	});
+var $author$project$Composable$Form$nestedControl = function (fields) {
+	return $author$project$Composable$Form$toBaseForm_(fields);
+};
+var $author$project$Composable$Form$viewFields = F3(
+	function (config, prefix, fields) {
+		var viewField = F2(
+			function (i, _v0) {
+				var field = _v0.a;
+				return A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('field')
+						]),
+					A2(
+						field.view,
+						config,
+						A2(
+							$elm$core$List$append,
+							prefix,
+							_List_fromArray(
+								[i]))));
+			});
+		return A2($elm$core$List$indexedMap, viewField, fields);
+	});
+var $author$project$Composable$Form$groupField = F2(
+	function (_class, _v0) {
+		var fields = _v0.a;
+		return $author$project$Composable$Form$Field(
+			{
+				control: $author$project$Composable$Form$nestedControl(fields),
+				view: F2(
+					function (config, key) {
+						return _List_fromArray(
+							[
+								A2(
+								$elm$html$Html$div,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class(_class)
+									]),
+								A3($author$project$Composable$Form$viewFields, config, key, fields))
+							]);
+					})
+			});
+	});
+var $author$project$Composable$Form$column = function (form) {
+	return A2($author$project$Composable$Form$groupField, 'column', form);
+};
+var $elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var $elm$core$List$tail = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(xs);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $elm_community$list_extra$List$Extra$init = function (items) {
+	if (!items.b) {
+		return $elm$core$Maybe$Nothing;
+	} else {
+		var nonEmptyList = items;
+		return A2(
+			$elm$core$Maybe$map,
+			$elm$core$List$reverse,
+			$elm$core$List$tail(
+				$elm$core$List$reverse(nonEmptyList)));
+	}
+};
+var $author$project$Html$Form$radio = F4(
+	function (toMsg, form, control, model) {
+		return A2(
+			$elm$html$Html$input,
+			A2(
+				$elm$core$List$cons,
+				$elm$html$Html$Attributes$type_('radio'),
+				A4($author$project$Html$Form$attrs, toMsg, form, control, model)),
+			_List_Nil);
+	});
+var $author$project$Composable$Form$radiosForm = F3(
+	function (set, toString, options) {
+		var radio = function (opt) {
+			return $author$project$Composable$Form$Field(
+				{
+					control: F2(
+						function (key, _v0) {
+							return A3(
+								$author$project$Html$Form$checkedControl,
+								$author$project$Composable$Form$keyToString(
+									A2(
+										$elm$core$Maybe$withDefault,
+										_List_Nil,
+										$elm_community$list_extra$List$Extra$init(key))),
+								toString(opt),
+								function (v) {
+									return set(
+										v ? $elm$core$Maybe$Just(opt) : $elm$core$Maybe$Nothing);
+								});
+						}),
+					view: F2(
+						function (_v1, ctrl) {
+							var form = _v1.form;
+							var model = _v1.model;
+							return _List_fromArray(
+								[
+									A4($author$project$Html$Form$radio, $elm$core$Basics$identity, form, ctrl, model)
+								]);
+						})
+				});
+		};
+		return A3(
+			$elm$core$List$foldl,
+			A2($elm$core$Basics$composeR, radio, $author$project$Composable$Form$append),
+			$author$project$Composable$Form$empty,
+			options);
+	});
+var $author$project$Composable$Form$row = function (form) {
+	return A2($author$project$Composable$Form$groupField, 'row', form);
+};
+var $author$project$Composable$Form$htmlField = function (raw) {
+	return $author$project$Composable$Form$Field(
+		{
+			control: $author$project$Composable$Form$onLeaf(
+				function (_v0) {
+					return $author$project$Html$Form$emptyControl;
+				}),
+			view: F2(
+				function (_v1, _v2) {
+					return raw;
+				})
+		});
+};
+var $author$project$Composable$Form$submit = function (l) {
+	return $author$project$Composable$Form$htmlField(
+		_List_fromArray(
+			[
+				A2(
+				$elm$html$Html$button,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$type_('submit')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text(l)
+					]))
+			]));
+};
+var $author$project$Html$Form$stringControl = F2(
+	function (name, setter) {
+		return $author$project$Html$Form$Control(
+			{
+				name: name,
+				update: $author$project$Html$Form$updateDb(
+					A2(
+						$elm$core$Basics$composeR,
+						$elm$core$Maybe$withDefault(''),
+						setter)),
+				value: $author$project$Html$Form$StringControl
+			});
+	});
+var $author$project$Composable$Form$textField = F2(
+	function (type_, set) {
+		return $author$project$Composable$Form$Field(
+			{
+				control: $author$project$Composable$Form$onLeaf(
+					function (name) {
+						return A2($author$project$Html$Form$stringControl, name, set);
+					}),
+				view: F2(
+					function (_v0, ctrl) {
+						var form = _v0.form;
+						var model = _v0.model;
+						return _List_fromArray(
+							[
+								A2(
+								$elm$html$Html$input,
+								A2(
+									$elm$core$List$cons,
+									$elm$html$Html$Attributes$type_(type_),
+									A4($author$project$Html$Form$attrs, $elm$core$Basics$identity, form, ctrl, model)),
+								_List_Nil)
+							]);
+					})
+			});
+	});
+var $author$project$Example$Composable$exampleForm = function () {
+	var myTextField = A2(
+		$author$project$Composable$Form$textField,
+		'text',
+		F2(
+			function (v, d) {
+				return _Utils_update(
+					d,
+					{myText: v});
+			}));
+	var myCheckboxField = $author$project$Composable$Form$checkboxField(
+		F2(
+			function (v, d) {
+				return _Utils_update(
+					d,
+					{myCheckbox: v});
+			}));
+	var animals = _List_fromArray(
+		[$author$project$Example$Cat, $author$project$Example$Dog, $author$project$Example$Zebra]);
+	var myCheckboxesForm = A4(
+		$author$project$Composable$Form$checkboxesForm,
+		F2(
+			function (v, d) {
+				return _Utils_update(
+					d,
+					{
+						myCheckboxes: A2($elm$core$List$cons, v, d.myCheckboxes)
+					});
+			}),
+		F2(
+			function (v, d) {
+				return _Utils_update(
+					d,
+					{
+						myCheckboxes: A2(
+							$elm$core$List$filter,
+							$elm$core$Basics$neq(v),
+							d.myCheckboxes)
+					});
+			}),
+		$author$project$Example$animalToString,
+		animals);
+	var myRadioForm = A3(
+		$author$project$Composable$Form$radiosForm,
+		F2(
+			function (v, d) {
+				return _Utils_update(
+					d,
+					{myRadio: v});
+			}),
+		$author$project$Example$animalToString,
+		animals);
+	return A2(
+		$author$project$Composable$Form$append,
+		$author$project$Composable$Form$submit('Submit'),
+		A2(
+			$author$project$Composable$Form$append,
+			$author$project$Composable$Form$row(myCheckboxesForm),
+			A2(
+				$author$project$Composable$Form$append,
+				$author$project$Composable$Form$column(myRadioForm),
+				A2(
+					$author$project$Composable$Form$append,
+					$author$project$Composable$Form$column(
+						A2(
+							$author$project$Composable$Form$append,
+							myCheckboxField,
+							A2($author$project$Composable$Form$append, myTextField, $author$project$Composable$Form$empty))),
+					$author$project$Composable$Form$empty))));
+}();
 var $elm$core$List$takeReverse = F3(
 	function (n, list, kept) {
 		takeReverse:
@@ -10996,7 +11336,7 @@ var $elm$core$List$take = F2(
 	function (n, list) {
 		return A3($elm$core$List$takeFast, 0, n, list);
 	});
-var $author$project$Example$onSubmit = F2(
+var $author$project$Example$Composable$onSubmit = F2(
 	function (model, ex) {
 		return _Utils_Tuple2(
 			_Utils_update(
@@ -11009,7 +11349,35 @@ var $author$project$Example$onSubmit = F2(
 				}),
 			$elm$core$Platform$Cmd$none);
 	});
+var $author$project$Composable$Form$toBaseForm = F2(
+	function (_v0, key) {
+		var fields = _v0.a;
+		if (key.b) {
+			var i = key.a;
+			var rem = key.b;
+			return A2(
+				$elm$core$Maybe$withDefault,
+				$author$project$Html$Form$emptyControl,
+				A2(
+					$elm$core$Maybe$map,
+					function (_v2) {
+						var field = _v2.a;
+						return A2(field.control, key, rem);
+					},
+					A2($elm_community$list_extra$List$Extra$getAt, i, fields)));
+		} else {
+			return $author$project$Html$Form$emptyControl;
+		}
+	});
 var $author$project$Html$Form$SubmitOnBlur = {$: 'SubmitOnBlur'};
+var $author$project$Html$Form$set = F4(
+	function (form, ctrlKey, val, _v0) {
+		var db = _v0.a;
+		var _v1 = form(ctrlKey);
+		var ctrl = _v1.a;
+		return $author$project$Html$Form$Model(
+			A3(ctrl.update, ctrl.name, val, db));
+	});
 var $author$project$Html$Form$update = F3(
 	function (form, msg, model) {
 		switch (msg.$) {
@@ -11025,136 +11393,28 @@ var $author$project$Html$Form$update = F3(
 				return _Utils_Tuple2(model, $author$project$Html$Form$SubmitOnForm);
 		}
 	});
-var $author$project$Example$update = F2(
+var $author$project$Composable$Form$update = function (form) {
+	return $author$project$Html$Form$update(
+		$author$project$Composable$Form$toBaseForm(form));
+};
+var $author$project$Example$Composable$update = F2(
 	function (msg, model) {
 		var formMsg = msg.a;
 		return A3(
-			$author$project$Html$Form$autoSubmit,
-			$author$project$Example$onSubmit,
+			$author$project$Composable$Form$autoSubmit,
+			$author$project$Example$Composable$onSubmit,
 			function (f) {
 				return _Utils_update(
 					model,
 					{form: f});
 			},
-			A3($author$project$Html$Form$update, $author$project$Example$exampleForm, formMsg, model.form));
+			A3($author$project$Composable$Form$update, $author$project$Example$Composable$exampleForm, formMsg, model.form));
 	});
-var $elm$html$Html$article = _VirtualDom_node('article');
-var $elm$html$Html$h1 = _VirtualDom_node('h1');
-var $author$project$Example$FormMsg = function (a) {
+var $author$project$Example$Composable$FormMsg = function (a) {
 	return {$: 'FormMsg', a: a};
 };
-var $author$project$Html$Form$OnBlur = function (a) {
-	return {$: 'OnBlur', a: a};
-};
-var $author$project$Html$Form$OnInput = F2(
-	function (a, b) {
-		return {$: 'OnInput', a: a, b: b};
-	});
-var $author$project$Html$Form$alwaysTargetValueDecoder = A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$html$Html$Events$targetValue);
-var $elm$json$Json$Decode$bool = _Json_decodeBool;
-var $elm$html$Html$Events$targetChecked = A2(
-	$elm$json$Json$Decode$at,
-	_List_fromArray(
-		['target', 'checked']),
-	$elm$json$Json$Decode$bool);
-var $author$project$Html$Form$checkedDecoder = function (constant) {
-	return A2(
-		$elm$json$Json$Decode$map,
-		function (checked) {
-			return checked ? $elm$core$Maybe$Just(constant) : $elm$core$Maybe$Nothing;
-		},
-		$elm$html$Html$Events$targetChecked);
-};
-var $elm$html$Html$Attributes$name = $elm$html$Html$Attributes$stringProperty('name');
-var $elm$html$Html$Events$onBlur = function (msg) {
-	return A2(
-		$elm$html$Html$Events$on,
-		'blur',
-		$elm$json$Json$Decode$succeed(msg));
-};
-var $author$project$Html$Form$eventAttrs = F3(
-	function (toMsg, form, ctrlKey) {
-		var _v0 = form(ctrlKey);
-		var ctrl = _v0.a;
-		var eventDecoder = function () {
-			var _v1 = ctrl.value;
-			if (_v1.$ === 'StringControl') {
-				return $author$project$Html$Form$alwaysTargetValueDecoder;
-			} else {
-				var value = _v1.a;
-				return $author$project$Html$Form$checkedDecoder(value);
-			}
-		}();
-		return _List_fromArray(
-			[
-				A2(
-				$elm$html$Html$Events$stopPropagationOn,
-				'input',
-				A2(
-					$elm$json$Json$Decode$map,
-					function (event) {
-						return _Utils_Tuple2(
-							toMsg(
-								A2($author$project$Html$Form$OnInput, ctrlKey, event)),
-							true);
-					},
-					eventDecoder)),
-				$elm$html$Html$Events$onBlur(
-				toMsg(
-					$author$project$Html$Form$OnBlur(ctrlKey))),
-				$elm$html$Html$Attributes$name(ctrl.name)
-			]);
-	});
-var $elm$json$Json$Encode$bool = _Json_wrap;
-var $elm$html$Html$Attributes$boolProperty = F2(
-	function (key, bool) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			$elm$json$Json$Encode$bool(bool));
-	});
-var $elm$html$Html$Attributes$checked = $elm$html$Html$Attributes$boolProperty('checked');
-var $author$project$Html$Form$stateAttrs = F3(
-	function (form, ctrlKey, _v0) {
-		var db = _v0.a;
-		var _v1 = form(ctrlKey);
-		var ctrl = _v1.a;
-		var currentState = A2(
-			$elm$core$Maybe$withDefault,
-			'',
-			A2($elm$core$Dict$get, ctrl.name, db.state));
-		var _v2 = ctrl.value;
-		if (_v2.$ === 'StringControl') {
-			return _List_fromArray(
-				[
-					$elm$html$Html$Attributes$value(currentState)
-				]);
-		} else {
-			var value = _v2.a;
-			return _List_fromArray(
-				[
-					$elm$html$Html$Attributes$value(value),
-					$elm$html$Html$Attributes$checked(
-					_Utils_eq(currentState, value))
-				]);
-		}
-	});
-var $author$project$Html$Form$attrs = F4(
-	function (toMsg, form, ctrl, model) {
-		return _Utils_ap(
-			A3($author$project$Html$Form$eventAttrs, toMsg, form, ctrl),
-			A3($author$project$Html$Form$stateAttrs, form, ctrl, model));
-	});
-var $author$project$Html$Form$checkbox = F4(
-	function (toMsg, form, control, model) {
-		return A2(
-			$elm$html$Html$input,
-			A2(
-				$elm$core$List$cons,
-				$elm$html$Html$Attributes$type_('checkbox'),
-				A4($author$project$Html$Form$attrs, toMsg, form, control, model)),
-			_List_Nil);
-	});
+var $elm$html$Html$article = _VirtualDom_node('article');
+var $elm$html$Html$h1 = _VirtualDom_node('h1');
 var $elm$html$Html$form = _VirtualDom_node('form');
 var $author$project$Html$Form$OnSubmit = {$: 'OnSubmit'};
 var $elm$html$Html$Events$alwaysPreventDefault = function (msg) {
@@ -11186,173 +11446,70 @@ var $author$project$Html$Form$formAttrs = function (toMsg) {
 			toMsg($author$project$Html$Form$OnSubmit))
 		]);
 };
-var $elm$html$Html$label = _VirtualDom_node('label');
-var $elm$html$Html$option = _VirtualDom_node('option');
-var $author$project$Html$Form$radio = F4(
-	function (toMsg, form, control, model) {
-		return A2(
-			$elm$html$Html$input,
-			A2(
-				$elm$core$List$cons,
-				$elm$html$Html$Attributes$type_('radio'),
-				A4($author$project$Html$Form$attrs, toMsg, form, control, model)),
-			_List_Nil);
-	});
-var $elm$html$Html$select = _VirtualDom_node('select');
-var $author$project$Html$Form$select = F4(
-	function (toMsg, form, control, options) {
-		return A2(
-			$elm$html$Html$select,
-			A3($author$project$Html$Form$eventAttrs, toMsg, form, control),
-			options);
-	});
-var $author$project$Html$Form$textInput = F4(
-	function (toMsg, form, control, model) {
-		return A2(
-			$elm$html$Html$input,
-			A2(
-				$elm$core$List$cons,
-				$elm$html$Html$Attributes$type_('text'),
-				A4($author$project$Html$Form$attrs, toMsg, form, control, model)),
-			_List_Nil);
-	});
-var $author$project$Example$viewExampleForm = function (model) {
-	var animals = _List_fromArray(
-		[$author$project$Example$Dog, $author$project$Example$Cat, $author$project$Example$Zebra]);
-	return A2(
-		$elm$html$Html$form,
-		$author$project$Html$Form$formAttrs($author$project$Example$FormMsg),
-		_List_fromArray(
-			[
-				A2(
-				$elm$html$Html$p,
-				_List_Nil,
-				_List_fromArray(
-					[
-						A2(
-						$elm$html$Html$label,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$elm$html$Html$text('My text field:'),
-								A4($author$project$Html$Form$textInput, $author$project$Example$FormMsg, $author$project$Example$exampleForm, $author$project$Example$MyText, model)
-							]))
-					])),
-				A2(
-				$elm$html$Html$p,
-				_List_Nil,
-				_List_fromArray(
-					[
-						A2(
-						$elm$html$Html$label,
-						_List_Nil,
-						_List_fromArray(
-							[
-								A4($author$project$Html$Form$checkbox, $author$project$Example$FormMsg, $author$project$Example$exampleForm, $author$project$Example$MyCheckbox, model),
-								$elm$html$Html$text('my checkbox')
-							]))
-					])),
-				A2(
-				$elm$html$Html$p,
-				_List_Nil,
-				A2(
-					$elm$core$List$map,
-					function (animal) {
-						return A2(
-							$elm$html$Html$label,
-							_List_Nil,
-							_List_fromArray(
-								[
-									A4(
-									$author$project$Html$Form$radio,
-									$author$project$Example$FormMsg,
-									$author$project$Example$exampleForm,
-									$author$project$Example$MyRadio(animal),
-									model),
-									$elm$html$Html$text(
-									$author$project$Example$animalToString(animal))
-								]));
-					},
-					animals)),
-				A4(
-				$author$project$Html$Form$select,
-				$author$project$Example$FormMsg,
-				$author$project$Example$exampleForm,
-				$author$project$Example$MySelect,
-				A2(
-					$elm$core$List$map,
-					function (id) {
-						return A2(
-							$elm$html$Html$option,
-							_List_fromArray(
-								[
-									$elm$html$Html$Attributes$value(id)
-								]),
-							_List_fromArray(
-								[
-									$elm$html$Html$text(id)
-								]));
-					},
-					A2($elm$core$List$map, $author$project$Example$animalToString, animals))),
-				A2(
-				$elm$html$Html$p,
-				_List_Nil,
-				A2(
-					$elm$core$List$map,
-					function (animal) {
-						return A2(
-							$elm$html$Html$label,
-							_List_Nil,
-							_List_fromArray(
-								[
-									A4(
-									$author$project$Html$Form$checkbox,
-									$author$project$Example$FormMsg,
-									$author$project$Example$exampleForm,
-									$author$project$Example$MyCheckboxes(animal),
-									model),
-									$elm$html$Html$text(
-									$author$project$Example$animalToString(animal))
-								]));
-					},
-					animals)),
-				A2(
-				$elm$html$Html$p,
-				_List_Nil,
-				_List_fromArray(
-					[
-						A2(
-						$elm$html$Html$button,
-						_List_fromArray(
-							[
-								$elm$html$Html$Attributes$type_('submit')
-							]),
-						_List_fromArray(
-							[
-								$elm$html$Html$text('Submit')
-							]))
-					]))
-			]));
+var $author$project$Composable$Form$formFields = function (_v0) {
+	var fields = _v0.a;
+	return fields;
 };
+var $elm$core$List$singleton = function (value) {
+	return _List_fromArray(
+		[value]);
+};
+var $author$project$Composable$Form$stylesheet = function (id) {
+	var rule = function (str) {
+		return '#' + (id + (' ' + str));
+	};
+	return A3(
+		$elm$html$Html$node,
+		'style',
+		_List_Nil,
+		A3(
+			$elm$core$Basics$composeR,
+			$elm$html$Html$text,
+			$elm$core$List$singleton,
+			A2(
+				$elm$core$String$join,
+				'\n',
+				_List_fromArray(
+					[
+						rule('.column { display: flex; margin: 0; }'),
+						rule('.row { margin: 0 0.5rem; }')
+					]))));
+};
+var $author$project$Composable$Form$view = F4(
+	function (toMsg, id, form, model) {
+		var config = {
+			form: $author$project$Composable$Form$toBaseForm(form),
+			id: id,
+			model: model
+		};
+		var children = A3(
+			$author$project$Composable$Form$viewFields,
+			config,
+			_List_Nil,
+			$author$project$Composable$Form$formFields(form));
+		return A2(
+			$elm$html$Html$map,
+			toMsg,
+			A2(
+				$elm$html$Html$form,
+				A2(
+					$elm$core$List$cons,
+					$elm$html$Html$Attributes$id(id),
+					$author$project$Html$Form$formAttrs($elm$core$Basics$identity)),
+				A2(
+					$elm$core$List$cons,
+					$author$project$Composable$Form$stylesheet(id),
+					children)));
+	});
 var $elm$html$Html$em = _VirtualDom_node('em');
 var $elm$html$Html$h2 = _VirtualDom_node('h2');
-var $elm$core$Maybe$map = F2(
-	function (f, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return $elm$core$Maybe$Just(
-				f(value));
-		} else {
-			return $elm$core$Maybe$Nothing;
-		}
-	});
 var $elm$html$Html$table = _VirtualDom_node('table');
 var $elm$html$Html$tbody = _VirtualDom_node('tbody');
 var $elm$html$Html$td = _VirtualDom_node('td');
 var $elm$html$Html$th = _VirtualDom_node('th');
 var $elm$html$Html$thead = _VirtualDom_node('thead');
 var $elm$html$Html$tr = _VirtualDom_node('tr');
-var $author$project$Example$viewSubmitted = function (examples) {
+var $author$project$Example$viewExamples = function (examples) {
 	return $elm$core$List$isEmpty(examples) ? _List_Nil : _List_fromArray(
 		[
 			A2(
@@ -11486,7 +11643,7 @@ var $author$project$Example$viewSubmitted = function (examples) {
 				]))
 		]);
 };
-var $author$project$Example$view = function (m) {
+var $author$project$Example$Composable$view = function (m) {
 	return A2(
 		$elm$html$Html$article,
 		_List_Nil,
@@ -11499,26 +11656,26 @@ var $author$project$Example$view = function (m) {
 					[
 						$elm$html$Html$text('Example form')
 					])),
-				$author$project$Example$viewExampleForm(m.form),
+				A4($author$project$Composable$Form$view, $author$project$Example$Composable$FormMsg, 'examples', $author$project$Example$Composable$exampleForm, m.form),
 				A2(
 				$elm$html$Html$div,
 				_List_Nil,
-				$author$project$Example$viewSubmitted(m.submitted))
+				$author$project$Example$viewExamples(m.submitted))
 			]));
 };
-var $author$project$Example$main = $elm$browser$Browser$element(
+var $author$project$Example$Composable$main = $elm$browser$Browser$element(
 	{
-		init: $author$project$Example$init,
+		init: $author$project$Example$Composable$init,
 		subscriptions: function (_v0) {
 			return $elm$core$Platform$Sub$none;
 		},
-		update: $author$project$Example$update,
-		view: $author$project$Example$view
+		update: $author$project$Example$Composable$update,
+		view: $author$project$Example$Composable$view
 	});
-_Platform_export({'Example':{'init':$author$project$Example$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Example.Msg","aliases":{"Example.Example":{"args":[],"type":"{ myText : String.String, myCheckbox : Basics.Bool, myRadio : Maybe.Maybe Example.Animal, mySelect : Maybe.Maybe Example.Animal, myCheckboxes : List.List Example.Animal }"}},"unions":{"Example.Msg":{"args":[],"tags":{"FormMsg":["Html.Form.Msg Example.ExampleControl Example.Example"]}},"Example.Animal":{"args":[],"tags":{"Cat":[],"Dog":[],"Zebra":[]}},"Basics.Bool":{"args":[],"tags":{"True":[],"False":[]}},"Example.ExampleControl":{"args":[],"tags":{"MyText":[],"MyCheckbox":[],"MyRadio":["Example.Animal"],"MySelect":[],"MyCheckboxes":["Example.Animal"]}},"List.List":{"args":["a"],"tags":{}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"Html.Form.Msg":{"args":["control","out"],"tags":{"OnInput":["control","Maybe.Maybe String.String"],"OnBlur":["control"],"OnSubmit":[]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
+_Platform_export({'Example':{'Composable':{'init':$author$project$Example$Composable$main(
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Example.Composable.Msg","aliases":{"Example.Example":{"args":[],"type":"{ myText : String.String, myCheckbox : Basics.Bool, myRadio : Maybe.Maybe Example.Animal, mySelect : Maybe.Maybe Example.Animal, myCheckboxes : List.List Example.Animal }"},"Composable.Form.Key":{"args":[],"type":"List.List Basics.Int"},"Composable.Form.Msg":{"args":["out"],"type":"Html.Form.Msg Composable.Form.Key out"}},"unions":{"Example.Composable.Msg":{"args":[],"tags":{"FormMsg":["Composable.Form.Msg Example.Example"]}},"Example.Animal":{"args":[],"tags":{"Cat":[],"Dog":[],"Zebra":[]}},"Basics.Bool":{"args":[],"tags":{"True":[],"False":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"Html.Form.Msg":{"args":["control","out"],"tags":{"OnInput":["control","Maybe.Maybe String.String"],"OnBlur":["control"],"OnSubmit":[]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}}});}(this));
 
-  var app = Elm.Example.init({ node: document.getElementById("elm") });
+  var app = Elm.Example.Composable.init({ node: document.getElementById("elm") });
 }
 catch (e)
 {

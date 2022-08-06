@@ -9,6 +9,7 @@ module Html.Form exposing
     , checkbox
     , checkedControl
     , currentOutput
+    , emptyControl
     , formAttrs
     , init
     , onFormSubmit
@@ -155,6 +156,7 @@ currentOutput (Model db) =
 
 updateDb : (Maybe String -> out -> out) -> String -> Maybe String -> Db out -> Db out
 updateDb setter name value db =
+    -- TODO: can we merge this in with set?
     { db
         | state =
             case value of
@@ -222,6 +224,15 @@ checkedControl name value setter =
         { update = updateDb (\state -> setter (state == Just value))
         , name = name
         , value = CheckedControl value
+        }
+
+
+emptyControl : Control out
+emptyControl =
+    Control
+        { update = \_ _ out -> out
+        , name = ""
+        , value = StringControl
         }
 
 
