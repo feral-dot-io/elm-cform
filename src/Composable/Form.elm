@@ -220,7 +220,7 @@ keyToString key =
 textField : String -> (String -> out -> out) -> Field out
 textField type_ set =
     Field
-        { control = onLeaf (\name -> Base.stringControl name set)
+        { control = onLeaf (Base.stringControl set)
         , view =
             \{ form, model } ctrl ->
                 [ Html.input (HA.type_ type_ :: Base.attrs identity form ctrl model) []
@@ -235,7 +235,7 @@ textField type_ set =
 checkboxField : (Bool -> out -> out) -> Field out
 checkboxField set =
     Field
-        { control = onLeaf (\name -> Base.checkedControl name "y" set)
+        { control = onLeaf (\name -> Base.checkedControl set name "y")
         , view =
             \{ form, model } ctrl ->
                 [ Base.checkbox identity form ctrl model
@@ -255,8 +255,6 @@ radiosForm set toString options =
                 { control =
                     \key _ ->
                         Base.checkedControl
-                            (keyToString (Maybe.withDefault [] (List.init key)))
-                            (toString opt)
                             (\v ->
                                 set
                                     (if v then
@@ -266,6 +264,8 @@ radiosForm set toString options =
                                         Nothing
                                     )
                             )
+                            (keyToString (Maybe.withDefault [] (List.init key)))
+                            (toString opt)
                 , view =
                     \{ form, model } ctrl ->
                         [ Base.radio identity form ctrl model
@@ -287,8 +287,7 @@ checkboxesForm insert remove toString options =
                 { control =
                     onLeaf
                         (\key ->
-                            Base.checkedControl key
-                                (toString opt)
+                            Base.checkedControl
                                 (\v ->
                                     (if v then
                                         insert
@@ -298,6 +297,8 @@ checkboxesForm insert remove toString options =
                                     )
                                         opt
                                 )
+                                key
+                                (toString opt)
                         )
                 , view =
                     \{ form, model } ctrl ->

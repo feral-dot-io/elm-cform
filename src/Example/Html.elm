@@ -140,18 +140,16 @@ exampleForm : ExampleControl -> Form.Control Example
 exampleForm key =
     case key of
         MyText ->
-            Form.stringControl "myText"
-                (\v d -> { d | myText = v })
+            Form.stringControl (\v d -> { d | myText = v })
+                "myText"
 
         MyCheckbox ->
-            Form.checkedControl "myCheckbox"
+            Form.checkedControl (\v d -> { d | myCheckbox = v })
+                "myCheckbox"
                 "y"
-                (\v d -> { d | myCheckbox = v })
 
         MyRadio animal ->
             Form.checkedControl
-                "myRadio"
-                (animalToString animal)
                 (\v d ->
                     { d
                         | myRadio =
@@ -162,18 +160,19 @@ exampleForm key =
                                 Nothing
                     }
                 )
+                "myRadio"
+                (animalToString animal)
 
         MySelect ->
-            Form.stringControl "mySelect"
-                (\v d -> { d | mySelect = stringToAnimal v })
+            Form.stringControl (\v d -> { d | mySelect = stringToAnimal v })
+                "mySelect"
 
         MyCheckboxes animal ->
             let
                 id =
                     animalToString animal
             in
-            Form.checkedControl ("myCheckboxes-" ++ id)
-                id
+            Form.checkedControl
                 (\v d ->
                     { d
                         | myCheckboxes =
@@ -184,3 +183,5 @@ exampleForm key =
                                 List.filter ((/=) animal) d.myCheckboxes
                     }
                 )
+                ("myCheckboxes-" ++ id)
+                id

@@ -242,8 +242,8 @@ setChecked form ctrlKey checked (Model db) =
 
 {-| Describes a single string control. Takes a field name (used in Html.Attribute.name) and an output setter. The callback is ran on every event related to this control.
 -}
-stringControl : String -> (String -> out -> out) -> Control out
-stringControl name setter =
+stringControl : (String -> out -> out) -> String -> Control out
+stringControl setter name =
     Control
         { update = updateDb (Maybe.withDefault "" >> setter)
         , name = name
@@ -253,8 +253,8 @@ stringControl name setter =
 
 {-| Similar to stringControl but for a single checked control like a checkboxe or radio. A value must be associated this control which is either set or not (representing the bool in the callback). Radios on the same field should share the same name.
 -}
-checkedControl : String -> String -> (Bool -> out -> out) -> Control out
-checkedControl name value setter =
+checkedControl : (Bool -> out -> out) -> String -> String -> Control out
+checkedControl setter name value =
     Control
         { update = updateDb (\state -> setter (state == Just value))
         , name = name
