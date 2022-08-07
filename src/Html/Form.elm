@@ -3,19 +3,17 @@ module Html.Form exposing
     , Form
     , Model
     , Msg
-    , SubmitStrategy
+    , SubmitTrigger
     , attrs
     , autoSubmit
     , checkbox
     , checkedControl
-    , currentOutput
     , emptyControl
     , formAttrs
     , init
     , onFormSubmit
     , radio
     , select
-    , set
     , setChecked
     , setString
     , stringControl
@@ -43,10 +41,14 @@ import Json.Decode as JD
 -- Types
 
 
+{-| The Form type holds a conversion function that maps our `control` type to a `Control`
+-}
 type alias Form control out =
     control -> Control out
 
 
+{-| Represents a form control. Used to create the events of a page's Html attributes
+-}
 type Control out
     = Control
         { update : String -> Maybe String -> Db out -> Db out
@@ -64,10 +66,14 @@ type ControlValue
 -- Model
 
 
+{-| Holds our internal DB tracking a form's current values
+-}
 type Model out
     = Model (Db out)
 
 
+{-| Creates an empty model. Requires an empty value for our returned `out` record. This `out` record is never read and not used in the form's HTML -- fields are only set in response to events. You should use `setString` and setChecked\` to set initial values in the form.
+-}
 init : out -> Model out
 init emptyOut =
     Model (emptyDB emptyOut)
@@ -77,13 +83,21 @@ init emptyOut =
 -- Update
 
 
+{-| Holds our form events.
+-}
 type Msg control out
     = OnInput control (Maybe String)
     | OnBlur control
     | OnSubmit
 
 
-update : Form control out -> Msg control out -> Model out -> ( Model out, SubmitStrategy )
+{-| Processes our form events and updates our model. Returns a new model and a submission trigger. The caller should use `autoSubmit` and `onFormSubmit` to process form submissions. For example:
+
+    Form.update form formMsg formModel
+        |> Form.autoSubmit onSubmit (\f -> { model | formModel = f })
+
+-}
+update : Form control out -> Msg control out -> Model out -> ( Model out, SubmitTrigger )
 update form msg model =
     case msg of
         OnInput ctrl val ->
@@ -100,17 +114,19 @@ update form msg model =
 -- Submission handling
 
 
-type SubmitStrategy
+{-| Represents a submission trigger. For example if the user hits "submit" on a form we'd see a form level submission trigger.
+-}
+type SubmitTrigger
     = SubmitOnInput
     | SubmitOnBlur
     | SubmitOnForm
 
 
 onSubmit :
-    List SubmitStrategy
+    List SubmitTrigger
     -> (model -> out -> ( model, Cmd msg ))
     -> (Model out -> model)
-    -> ( Model out, SubmitStrategy )
+    -> ( Model out, SubmitTrigger )
     -> ( model, Cmd msg )
 onSubmit strategies next setter ( model, sub ) =
     let
@@ -124,12 +140,16 @@ onSubmit strategies next setter ( model, sub ) =
         ( oModel, Cmd.none )
 
 
-autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> ( Model out, SubmitStrategy ) -> ( model, Cmd msg )
+{-| Processes return values from form updates. Runs a callback whenever any form input changes. For example used on a search query that does something as the user types.
+-}
+autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> ( Model out, SubmitTrigger ) -> ( model, Cmd msg )
 autoSubmit =
     onSubmit [ SubmitOnInput, SubmitOnForm ]
 
 
-onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> ( Model out, SubmitStrategy ) -> ( model, Cmd msg )
+{-| Similiar to autoSubmit: processes form updates. Updates when a form is submitted. For example the user clicks a `<button type="submit">` or presses enter on a text input.
+-}
+onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> ( Model out, SubmitTrigger ) -> ( model, Cmd msg )
 onFormSubmit =
     onSubmit [ SubmitOnForm ]
 
@@ -138,6 +158,8 @@ onFormSubmit =
 -- Our internal DB
 
 
+{-| Holds our internal form state.
+-}
 type alias Db out =
     { out : out
     , state : Dict String String
@@ -149,14 +171,17 @@ emptyDB emptyOut =
     Db emptyOut Dict.empty
 
 
+{-| Returns the model's current output built up from form events.
+-}
 currentOutput : Model out -> out
 currentOutput (Model db) =
     db.out
 
 
+{-| Updates our DB and current output current.
+-}
 updateDb : (Maybe String -> out -> out) -> String -> Maybe String -> Db out -> Db out
 updateDb setter name value db =
-    -- TODO: can we merge this in with set?
     { db
         | state =
             case value of
@@ -169,6 +194,8 @@ updateDb setter name value db =
     }
 
 
+{-| Takes a form's control and updates our model with the given value.
+-}
 set : Form control out -> control -> Maybe String -> Model out -> Model out
 set form ctrlKey val (Model db) =
     let
@@ -178,11 +205,15 @@ set form ctrlKey val (Model db) =
     Model (ctrl.update ctrl.name val db)
 
 
+{-| Sets the value for a string-based control. Used for initial form values.
+-}
 setString : Form control out -> control -> String -> Model out -> Model out
 setString form ctrl val model =
     set form ctrl (Just val) model
 
 
+{-| Sets the default checked (on / off) state for a checkbox or radio control. Used for initial form values.
+-}
 setChecked : Form control out -> control -> Bool -> Model out -> Model out
 setChecked form ctrlKey checked (Model db) =
     let
@@ -209,6 +240,8 @@ setChecked form ctrlKey checked (Model db) =
 -- Creating a control
 
 
+{-| Describes a single string control. Takes a field name (used in Html.Attribute.name) and an output setter. The callback is ran on every event related to this control.
+-}
 stringControl : String -> (String -> out -> out) -> Control out
 stringControl name setter =
     Control
@@ -218,6 +251,8 @@ stringControl name setter =
         }
 
 
+{-| Similar to stringControl but for a single checked control like a checkboxe or radio. A value must be associated this control which is either set or not (representing the bool in the callback). Radios on the same field should share the same name.
+-}
 checkedControl : String -> String -> (Bool -> out -> out) -> Control out
 checkedControl name value setter =
     Control
@@ -227,6 +262,8 @@ checkedControl name value setter =
         }
 
 
+{-| A control that ignores all events and doesn't output a form's output. The nil or no-op event.
+-}
 emptyControl : Control out
 emptyControl =
     Control
@@ -240,11 +277,15 @@ emptyControl =
 -- View (HTML attributes)
 
 
+{-| Attributes to be used on a Html.form. For example `Html.form (Form.formAttrs FormMsg) [ ... ]`
+-}
 formAttrs : (Msg control out -> msg) -> List (Html.Attribute msg)
 formAttrs toMsg =
     [ HE.onSubmit (toMsg OnSubmit) ]
 
 
+{-| Uses targetChecked to send a control's value or not. An empty string is not special so we use a Maybe here.
+-}
 checkedDecoder : String -> JD.Decoder (Maybe String)
 checkedDecoder constant =
     JD.map
@@ -259,12 +300,16 @@ checkedDecoder constant =
         HE.targetChecked
 
 
+{-| Sends an event's target value. Always send a string: an empty string is not a missing value.
+-}
 alwaysTargetValueDecoder : JD.Decoder (Maybe String)
 alwaysTargetValueDecoder =
     -- Always send target's value
     JD.map Just HE.targetValue
 
 
+{-| Builds our event-based attributes.
+-}
 eventAttrs : (Msg control out -> msg) -> Form control out -> control -> List (Html.Attribute msg)
 eventAttrs toMsg form ctrlKey =
     let
@@ -289,6 +334,8 @@ eventAttrs toMsg form ctrlKey =
     ]
 
 
+{-| Builds our state-based attributes.
+-}
 stateAttrs : Form control out -> control -> Model out -> List (Html.Attribute msg)
 stateAttrs form ctrlKey (Model db) =
     let
@@ -310,26 +357,36 @@ stateAttrs form ctrlKey (Model db) =
             ]
 
 
+{-| HTML attributes to put on a control's HTML. Includes our current state and events.
+-}
 attrs : (Msg control out -> msg) -> Form control out -> control -> Model out -> List (Html.Attribute msg)
 attrs toMsg form ctrl model =
     eventAttrs toMsg form ctrl ++ stateAttrs form ctrl model
 
 
+{-| Helper function to build a text input `Html.input [Html.type_ "text", ...] []`
+-}
 textInput : (Msg control out -> msg) -> Form control out -> control -> Model out -> Html msg
 textInput toMsg form control model =
     Html.input (HA.type_ "text" :: attrs toMsg form control model) []
 
 
+{-| Helper function to build a checkbox `Html.input [Html.type_ "checkbox", ...] []`
+-}
 checkbox : (Msg control out -> msg) -> Form control out -> control -> Model out -> Html msg
 checkbox toMsg form control model =
     Html.input (HA.type_ "checkbox" :: attrs toMsg form control model) []
 
 
+{-| Helper function to build a radio `Html.input [Html.type_ "radio", ...] []`
+-}
 radio : (Msg control out -> msg) -> Form control out -> control -> Model out -> Html msg
 radio toMsg form control model =
     Html.input (HA.type_ "radio" :: attrs toMsg form control model) []
 
 
+{-| Helper function to build a select `Html.select [...] options`
+-}
 select : (Msg control out -> msg) -> Form control out -> control -> List (Html msg) -> Html msg
 select toMsg form control options =
     Html.select (eventAttrs toMsg form control) options
