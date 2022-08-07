@@ -71,13 +71,13 @@ type alias Msg out =
     Base.Msg Key out
 
 
-update : Form out -> Msg out -> Model out -> ( Model out, Base.SubmitStrategy )
+update : Form out -> Msg out -> Model out -> ( Model out, Base.SubmitTrigger )
 update form =
     Base.update (toBaseForm form)
 
 
 type alias SubmitStrategy =
-    Base.SubmitStrategy
+    Base.SubmitTrigger
 
 
 autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> ( Model out, SubmitStrategy ) -> ( model, Cmd msg )
