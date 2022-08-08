@@ -235,7 +235,14 @@ textField type_ set =
 checkboxField : (Bool -> out -> out) -> Field out
 checkboxField set =
     Field
-        { control = onLeaf (\name -> Base.checkedControl set name "y")
+        { control =
+            onLeaf
+                (\name ->
+                    Base.checkedControl (set True)
+                        (set False)
+                        name
+                        "y"
+                )
         , view =
             \{ form, model } ctrl ->
                 [ Base.checkbox identity form ctrl model
@@ -255,15 +262,8 @@ radiosForm set toString options =
                 { control =
                     \key _ ->
                         Base.checkedControl
-                            (\v ->
-                                set
-                                    (if v then
-                                        Just opt
-
-                                     else
-                                        Nothing
-                                    )
-                            )
+                            (set (Just opt))
+                            (set Nothing)
                             (keyToString (Maybe.withDefault [] (List.init key)))
                             (toString opt)
                 , view =
@@ -288,15 +288,8 @@ checkboxesForm insert remove toString options =
                     onLeaf
                         (\key ->
                             Base.checkedControl
-                                (\v ->
-                                    (if v then
-                                        insert
-
-                                     else
-                                        remove
-                                    )
-                                        opt
-                                )
+                                (insert opt)
+                                (remove opt)
                                 key
                                 (toString opt)
                         )

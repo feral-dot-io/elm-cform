@@ -251,12 +251,20 @@ stringControl setter name =
         }
 
 
-{-| Similar to stringControl but for a single checked control like a checkboxe or radio. A value must be associated this control which is either set or not (representing the bool in the callback). Radios on the same field should share the same name.
+{-| Similar to stringControl but for a single checked control like a checkbox or radio. A value must be associated this control which can be checked or not. For radio buttons, this distinguishes it from others with the same name.
 -}
-checkedControl : (Bool -> out -> out) -> String -> String -> Control out
-checkedControl setter name value =
+checkedControl : (out -> out) -> (out -> out) -> String -> String -> Control out
+checkedControl checked unchecked name value =
     Control
-        { update = updateDb (\state -> setter (state == Just value))
+        { update =
+            updateDb
+                (\state ->
+                    if state == Just value then
+                        checked
+
+                    else
+                        unchecked
+                )
         , name = name
         , value = CheckedControl value
         }

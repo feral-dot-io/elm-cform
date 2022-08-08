@@ -144,22 +144,16 @@ exampleForm key =
                 "myText"
 
         MyCheckbox ->
-            Form.checkedControl (\v d -> { d | myCheckbox = v })
+            Form.checkedControl
+                (\d -> { d | myCheckbox = True })
+                (\d -> { d | myCheckbox = False })
                 "myCheckbox"
                 "y"
 
         MyRadio animal ->
             Form.checkedControl
-                (\v d ->
-                    { d
-                        | myRadio =
-                            if v then
-                                Just animal
-
-                            else
-                                Nothing
-                    }
-                )
+                (\d -> { d | myRadio = Just animal })
+                (\d -> { d | myRadio = Nothing })
                 "myRadio"
                 (animalToString animal)
 
@@ -173,15 +167,7 @@ exampleForm key =
                     animalToString animal
             in
             Form.checkedControl
-                (\v d ->
-                    { d
-                        | myCheckboxes =
-                            if v then
-                                animal :: d.myCheckboxes
-
-                            else
-                                List.filter ((/=) animal) d.myCheckboxes
-                    }
-                )
+                (\d -> { d | myCheckboxes = animal :: d.myCheckboxes })
+                (\d -> { d | myCheckboxes = List.filter ((/=) animal) d.myCheckboxes })
                 ("myCheckboxes-" ++ id)
                 id
