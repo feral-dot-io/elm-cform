@@ -1,5 +1,6 @@
 module Composable.Form exposing
-    ( Field
+    ( Attribute
+    , Field
     , Form
     , Model
     , Msg
@@ -13,11 +14,13 @@ module Composable.Form exposing
     , empty
     , fieldset
     , init
+    , label
     , onFormSubmit
     , radiosForm
     , row
     , submit
     , textField
+    , textLabel
     , update
     , view
     )
@@ -207,24 +210,78 @@ nestedControl fields =
     toBaseForm_ fields
 
 
+
+-- Helpers
+
+
 keyToString : Key -> String
 keyToString key =
     List.map String.fromInt key
         |> String.join "-"
 
 
+type alias Common out =
+    { label : List (Html (Msg out))
+    , id : String
+    , class : String
+    }
+
+
+emptyCommon : Common out
+emptyCommon =
+    Common [] "" ""
+
+
+withLeftLabel : List (Html (Msg out)) -> List (Html (Msg out)) -> List (Html (Msg out))
+withLeftLabel left inner =
+    if List.isEmpty left then
+        inner
+
+    else
+        [ Html.label [] (left ++ inner) ]
+
+
+withRightLabel : List (Html (Msg out)) -> List (Html (Msg out)) -> List (Html (Msg out))
+withRightLabel right inner =
+    if List.isEmpty right then
+        inner
+
+    else
+        [ Html.label [] (inner ++ right) ]
+
+
 
 -- Text field
 
 
-textField : String -> (String -> out -> out) -> Field out
-textField type_ set =
+type alias TextConfig out =
+    { common : Common out
+    , autocomplete : List String
+    , autofocus : Bool
+    , inputMode : String
+    , placeholder : String
+    , type_ : String
+    }
+
+
+emptyTextConfig : TextConfig out
+emptyTextConfig =
+    TextConfig emptyCommon [] False "" "" "text"
+
+
+textField : (String -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
+textField set attr =
+    let
+        c =
+            attrToConfig emptyTextConfig attr
+    in
     Field
         { control = onLeaf (Base.stringControl set)
         , view =
             \{ form, model } ctrl ->
-                [ Html.input (HA.type_ type_ :: Base.attrs identity form ctrl model) []
-                ]
+                withLeftLabel c.common.label
+                    [ Html.input (HA.type_ c.type_ :: Base.attrs identity form ctrl model) []
+                    ]
         }
 
 
@@ -357,3 +414,35 @@ fieldset title (Form fields) =
                     )
                 ]
         }
+
+
+
+-- Field attributes
+
+
+type alias Attribute config =
+    config -> config
+
+
+attrToConfig : config -> List (Attribute config) -> config
+attrToConfig zero attr =
+    List.foldl (\fn acc -> fn acc) zero attr
+
+
+type alias WithCommon a out =
+    { a | common : Common out }
+
+
+setCommon : (Common out -> Common out) -> WithCommon a out -> WithCommon a out
+setCommon set o =
+    { o | common = set o.common }
+
+
+label : List (Html (Msg out)) -> Attribute { config | common : Common out }
+label v =
+    setCommon (\c -> { c | label = v })
+
+
+textLabel : String -> Attribute { config | common : Common out }
+textLabel str =
+    label [ Html.text str ]

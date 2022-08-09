@@ -70,7 +70,9 @@ exampleForm =
             [ Cat, Dog, Zebra ]
 
         myTextField =
-            Form.textField "text" (\v d -> { d | myText = v })
+            Form.textField
+                (\v d -> { d | myText = v })
+                [ Form.textLabel "myText" ]
 
         myCheckboxField =
             Form.checkboxField (\v d -> { d | myCheckbox = v })
