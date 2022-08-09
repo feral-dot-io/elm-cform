@@ -76,9 +76,12 @@ exampleForm =
 
         myCheckboxField =
             Form.checkboxField (\v d -> { d | myCheckbox = v })
+                [ Form.textLabel "myCheckbox" ]
 
         myRadioForm =
-            Form.radiosForm (\v d -> { d | myRadio = v }) animalToString animals
+            Form.radiosForm (\v d -> { d | myRadio = v })
+                animalToString
+                animals
 
         myCheckboxesForm =
             Form.checkboxesForm
