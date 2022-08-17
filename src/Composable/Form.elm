@@ -281,20 +281,14 @@ textField set attrs =
     Field
         { control = onLeaf (Base.stringControl set)
         , view =
-            \{ topId, form, model } ctrl ->
-                let
-                    fieldId =
-                        topId ++ keyToString ctrl
-                in
-                [ Html.label [ HA.for fieldId ] c.common.label
-                , Html.input
-                    ([ HA.type_ c.type_
-                     , HA.id fieldId
-                     ]
-                        ++ Base.attrs identity form ctrl model
-                    )
-                    []
-                ]
+            \{ form, model } ctrl ->
+                withLeftLabel c.common.label
+                    [ Html.input
+                        (HA.type_ c.type_
+                            :: Base.attrs identity form ctrl model
+                        )
+                        []
+                    ]
         }
 
 
