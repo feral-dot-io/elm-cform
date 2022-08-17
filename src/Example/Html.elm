@@ -18,7 +18,7 @@ main =
 
 
 type alias Model =
-    { form : Form.Model Example
+    { form : Form.Model ExampleControl String Example
     , submitted : List Example
     }
 
@@ -70,20 +70,30 @@ view m =
 -- How to render our controls
 
 
-viewExampleForm : Form.Model Example -> Html Msg
+viewExampleForm : Form.Model ExampleControl String Example -> Html Msg
 viewExampleForm model =
     let
         animals =
             [ Dog, Cat, Zebra ]
+
+        myTextState =
+            Form.controlState exampleForm MyText model
     in
     Html.form (Form.formAttrs FormMsg)
         -- Text
         [ Html.p []
-            [ Html.label []
+            (Html.label []
                 [ Html.text "My text field:"
                 , Form.textInput FormMsg exampleForm MyText model
                 ]
-            ]
+                :: (case myTextState.error of
+                        Just err ->
+                            [ Html.text ("Error: " ++ err) ]
+
+                        Nothing ->
+                            []
+                   )
+            )
 
         -- Checkbox
         , Html.p []
@@ -136,12 +146,20 @@ type ExampleControl
     | MyCheckboxes Animal
 
 
-exampleForm : ExampleControl -> Form.Control Example
+exampleForm : ExampleControl -> Form.Control String Example
 exampleForm key =
     case key of
         MyText ->
             Form.stringControl (\v d -> { d | myText = v })
                 "myText"
+                |> Form.withValidator
+                    (\str out ->
+                        if String.isEmpty str then
+                            Err "Text field cannot be empty"
+
+                        else
+                            Ok out
+                    )
 
         MyCheckbox ->
             Form.checkedControl

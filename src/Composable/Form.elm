@@ -44,7 +44,7 @@ type Form out
 
 
 type alias BaseForm out =
-    Base.Form Key out
+    Base.Form Key String out
 
 
 type alias Key =
@@ -53,7 +53,7 @@ type alias Key =
 
 type Field out
     = Field
-        { control : Key -> Key -> Base.Control out
+        { control : Key -> Key -> Base.Control String out
         , view : FormConfig out -> Key -> List (Html (Msg out))
         }
 
@@ -70,7 +70,7 @@ type alias FormConfig out =
 
 
 type alias Model out =
-    Base.Model out
+    Base.Model Key String out
 
 
 init : out -> Model out
@@ -84,7 +84,7 @@ type alias Msg out =
 
 update : Form out -> Msg out -> Model out -> ( Model out, Base.SubmitTrigger )
 update form =
-    Base.update (toBaseForm form)
+    Base.update (formToBase form)
 
 
 type alias SubmitStrategy =
@@ -110,7 +110,7 @@ view toMsg formId form model =
     let
         config =
             { topId = formId
-            , form = toBaseForm form
+            , form = formToBase form
             , model = model
             }
 
@@ -178,23 +178,13 @@ formFields (Form fields) =
     fields
 
 
-toBaseForm : Form out -> BaseForm out
-toBaseForm (Form fields) key =
-    case key of
-        i :: rem ->
-            List.getAt i fields
-                |> Maybe.map
-                    (\(Field field) ->
-                        field.control key rem
-                    )
-                |> Maybe.withDefault Base.emptyControl
-
-        [] ->
-            Base.emptyControl
+formToBase : Form out -> BaseForm out
+formToBase (Form fields) key =
+    fieldsToBase fields key key
 
 
-toBaseForm_ : List (Field out) -> Key -> BaseForm out
-toBaseForm_ fields name key =
+fieldsToBase : List (Field out) -> Key -> BaseForm out
+fieldsToBase fields name key =
     case key of
         i :: rem ->
             List.getAt i fields
@@ -208,17 +198,18 @@ toBaseForm_ fields name key =
             Base.emptyControl
 
 
-onLeaf : (String -> Base.Control out) -> Key -> Key -> Base.Control out
+onLeaf : (String -> Base.Control String out) -> Key -> Key -> Base.Control String out
 onLeaf cb name _ =
     cb (keyToString name)
 
 
-nestedControl : List (Field out) -> Key -> Key -> Base.Control out
+nestedControl : List (Field out) -> Key -> Key -> Base.Control String out
 nestedControl fields =
-    toBaseForm_ fields
+    fieldsToBase fields
 
 
 
+-- Helpers
 -- Helpers
 
 
@@ -226,19 +217,6 @@ keyToString : Key -> String
 keyToString key =
     List.map String.fromInt key
         |> String.join "-"
-
-
-type alias Common out =
-    { attrs : List (Html.Attribute (Msg out))
-    , class : String
-    , id : String
-    , label : List (Html (Msg out))
-    }
-
-
-emptyCommon : Common out
-emptyCommon =
-    Common [] "" "" []
 
 
 withLeftLabel : List (Html (Msg out)) -> List (Html (Msg out)) -> List (Html (Msg out))
@@ -257,6 +235,23 @@ withRightLabel right inner =
 
     else
         [ Html.label [] (inner ++ right) ]
+
+
+
+-- Common field
+
+
+type alias Common out =
+    { attrs : List (Html.Attribute (Msg out))
+    , class : String
+    , id : String
+    , label : List (Html (Msg out))
+    }
+
+
+emptyCommon : Common out
+emptyCommon =
+    Common [] "" "" []
 
 
 
@@ -286,14 +281,20 @@ textField set attrs =
     Field
         { control = onLeaf (Base.stringControl set)
         , view =
-            \{ form, model } ctrl ->
-                withLeftLabel c.common.label
-                    [ Html.input
-                        (HA.type_ c.type_
-                            :: Base.attrs identity form ctrl model
-                        )
-                        []
-                    ]
+            \{ topId, form, model } ctrl ->
+                let
+                    fieldId =
+                        topId ++ keyToString ctrl
+                in
+                [ Html.label [ HA.for fieldId ] c.common.label
+                , Html.input
+                    ([ HA.type_ c.type_
+                     , HA.id fieldId
+                     ]
+                        ++ Base.attrs identity form ctrl model
+                    )
+                    []
+                ]
         }
 
 
