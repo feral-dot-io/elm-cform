@@ -279,7 +279,15 @@ textField set attrs =
             attrToConfig emptyTextConfig attrs
     in
     Field
-        { control = onLeaf (Base.stringControl set)
+        { control =
+            onLeaf
+                (\name ->
+                    Base.stringControl
+                        { name = name
+                        , validators = []
+                        , update = set
+                        }
+                )
         , view =
             \{ form, model } ctrl ->
                 withLeftLabel c.common.label
@@ -316,10 +324,12 @@ checkboxField set attrs =
         { control =
             onLeaf
                 (\name ->
-                    Base.checkedControl (set True)
-                        (set False)
-                        name
-                        "y"
+                    Base.checkedControl
+                        { name = name
+                        , value = "y"
+                        , validators = []
+                        , update = set
+                        }
                 )
         , view =
             \{ form, model } ctrl ->
@@ -344,10 +354,11 @@ radiosForm set toString options =
                 { control =
                     \key _ ->
                         Base.checkedControl
-                            (set (Just opt))
-                            (set Nothing)
-                            (keyToString (Maybe.withDefault [] (List.init key)))
-                            asStr
+                            { name = keyToString key
+                            , value = asStr
+                            , validators = []
+                            , update = Base.onOffUpdate (set (Just opt)) (set Nothing)
+                            }
                 , view =
                     \{ form, model } ctrl ->
                         withRightLabel [ Html.text asStr ]
@@ -372,8 +383,13 @@ checkboxesForm insert remove toString options =
             Field
                 { control =
                     onLeaf
-                        (\key ->
-                            Base.checkedControl (insert opt) (remove opt) key asStr
+                        (\name ->
+                            Base.checkedControl
+                                { name = name
+                                , value = asStr
+                                , validators = []
+                                , update = Base.onOffUpdate (insert opt) (remove opt)
+                                }
                         )
                 , view =
                     \{ form, model } ctrl ->

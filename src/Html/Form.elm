@@ -9,11 +9,14 @@ module Html.Form exposing
     , autoSubmit
     , checkbox
     , checkedControl
+    , checkedListUpdate
     , controlState
     , emptyControl
+    , fieldErrors
     , formAttrs
     , init
     , onFormSubmit
+    , onOffUpdate
     , radio
     , select
     , setChecked
@@ -21,10 +24,10 @@ module Html.Form exposing
     , stringControl
     , textInput
     , update
-    , withValidator
     )
 
 import Dict exposing (Dict)
+import Form.Decoder as FD
 import Html exposing (Html)
 import Html.Attributes as HA
 import Html.Events as HE
@@ -54,9 +57,9 @@ type alias Form control err out =
 -}
 type Control err out
     = Control
-        { update : Maybe String -> out -> Result err out
-        , name : String
+        { name : String
         , value : ControlValue
+        , decoder : out -> FD.Decoder (Maybe String) err out
         }
 
 
@@ -169,7 +172,7 @@ type alias Db control err out =
     { out : out
     , touched : Dict String control
     , state : Dict String String
-    , errors : Dict String err
+    , errors : Dict String (List err)
     }
 
 
@@ -196,6 +199,7 @@ updateModel form ctrlKey value (Model db) =
         (Control ctrl) =
             form ctrlKey
 
+        -- Update our tracking state
         db2 =
             { db
                 | touched = Dict.insert ctrl.name ctrlKey db.touched
@@ -209,13 +213,14 @@ updateModel form ctrlKey value (Model db) =
                             Dict.remove ctrl.name db.state
             }
 
+        -- Update our output or error
         db3 =
-            case ctrl.update value db.out of
+            case FD.run (ctrl.decoder db2.out) value of
                 Ok out ->
                     { db2 | out = out }
 
-                Err err ->
-                    { db2 | errors = Dict.insert ctrl.name err db2.errors }
+                Err errs ->
+                    { db2 | errors = Dict.insert ctrl.name errs db2.errors }
     in
     Model db3
 
@@ -255,32 +260,63 @@ setChecked form ctrlKey checked model =
 -- Creating a control
 
 
-{-| Describes a single string control. Takes a field name (used in Html.Attribute.name) and an output setter. The callback is ran on every event related to this control.
--}
-stringControl : (String -> out -> out) -> String -> Control err out
-stringControl setter name =
+fieldDecoder :
+    (Maybe String -> temp)
+    -> { a | validators : List (FD.Validator temp err), update : temp -> out -> out }
+    -> out
+    -> FD.Decoder (Maybe String) err out
+fieldDecoder toTemp c out =
+    FD.identity
+        |> FD.map toTemp
+        |> FD.pass (List.foldl FD.assert FD.identity c.validators)
+        |> FD.map (\temp -> c.update temp out)
+
+
+stringControl :
+    { name : String
+    , validators : List (FD.Validator String err)
+    , update : String -> out -> out
+    }
+    -> Control err out
+stringControl c =
     Control
-        { update = \state out -> Ok (setter (Maybe.withDefault "" state) out)
-        , name = name
+        { name = c.name
         , value = StringControl
+        , decoder = fieldDecoder (Maybe.withDefault "") c
         }
 
 
-{-| Similar to stringControl but for a single checked control like a checkbox or radio. A value must be associated this control which can be checked or not. For radio buttons, this distinguishes it from others with the same name.
--}
-checkedControl : (out -> out) -> (out -> out) -> String -> String -> Control err out
-checkedControl checked unchecked name value =
+checkedControl :
+    { name : String
+    , value : String
+    , validators : List (FD.Validator Bool err)
+    , update : Bool -> out -> out
+    }
+    -> Control err out
+checkedControl c =
     Control
-        { update =
-            \state out ->
-                if state == Just value then
-                    Ok (checked out)
-
-                else
-                    Ok (unchecked out)
-        , name = name
-        , value = CheckedControl value
+        { name = c.name
+        , value = CheckedControl c.value
+        , decoder = fieldDecoder (\state -> state == Just c.value) c
         }
+
+
+onOffUpdate : (out -> out) -> (out -> out) -> Bool -> out -> out
+onOffUpdate on off v d =
+    if v then
+        on d
+
+    else
+        off d
+
+
+checkedListUpdate : option -> (out -> List option) -> (List option -> out -> out) -> Bool -> out -> out
+checkedListUpdate opt get set =
+    onOffUpdate
+        -- Add
+        (\d -> set (opt :: get d) d)
+        -- Remove
+        (\d -> set (List.filter ((/=) opt) (get d)) d)
 
 
 {-| A control that ignores all events and doesn't output a form's output. The nil or no-op event.
@@ -288,28 +324,14 @@ checkedControl checked unchecked name value =
 emptyControl : Control err out
 emptyControl =
     Control
-        { update = \_ out -> Ok out
-        , name = ""
+        { name = ""
         , value = StringControl
-        }
-
-
-{-| Wraps a control with a validator
--}
-withValidator : (String -> out -> Result err out) -> Control err out -> Control err out
-withValidator validator (Control ctrl) =
-    Control
-        { ctrl
-          -- Wrap update
-            | update =
-                \state out ->
-                    validator (Maybe.withDefault "" state) out
-                        |> Result.andThen (ctrl.update state)
+        , decoder = \out -> FD.always out
         }
 
 
 
--- View (HTML attributes)
+-- View's base elements
 
 
 {-| Attributes to be used on a Html.form. For example `Html.form (Form.formAttrs FormMsg) [ ... ]`
@@ -399,6 +421,43 @@ attrs toMsg form ctrl model =
     eventAttrs toMsg form ctrl ++ stateAttrs form ctrl model
 
 
+type alias ControlState err =
+    { name : String
+    , value : String
+    , error : Maybe err
+    , changed : Bool
+    , changedSinceSubmit : Bool
+    }
+
+
+controlState : Form control err out -> control -> Model control err out -> ControlState err
+controlState form ctrlKey (Model db) =
+    let
+        (Control ctrl) =
+            form ctrlKey
+
+        state =
+            Dict.get ctrl.name db.state
+    in
+    { name = ctrl.name
+    , value = Maybe.withDefault "" state
+    , error =
+        Dict.get ctrl.name db.errors
+            |> Maybe.andThen List.head
+    , changed = state /= Nothing
+    , changedSinceSubmit = Dict.member ctrl.name db.touched
+    }
+
+
+fieldErrors : Form control err out -> List control -> Model control err out -> List err
+fieldErrors form controls model =
+    List.filterMap (\c -> (controlState form c model).error) controls
+
+
+
+-- Helper Html elements
+
+
 {-| Helper function to build a text input `Html.input [Html.type_ "text", ...] []`
 -}
 textInput : (Msg control out -> msg) -> Form control err out -> control -> Model control err out -> Html msg
@@ -425,33 +484,3 @@ radio toMsg form control model =
 select : (Msg control out -> msg) -> Form control err out -> control -> List (Html msg) -> Html msg
 select toMsg form control options =
     Html.select (eventAttrs toMsg form control) options
-
-
-
--- Field state
-
-
-type alias ControlState err =
-    { name : String
-    , value : String
-    , error : Maybe err
-    , changed : Bool
-    , changedSinceSubmit : Bool
-    }
-
-
-controlState : Form control err out -> control -> Model control err out -> ControlState err
-controlState form ctrlKey (Model db) =
-    let
-        (Control ctrl) =
-            form ctrlKey
-
-        state =
-            Dict.get ctrl.name db.state
-    in
-    { name = ctrl.name
-    , value = Maybe.withDefault "" state
-    , error = Dict.get ctrl.name db.errors
-    , changed = state /= Nothing
-    , changedSinceSubmit = Dict.member ctrl.name db.touched
-    }

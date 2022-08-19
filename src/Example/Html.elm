@@ -2,6 +2,7 @@ module Example.Html exposing (main)
 
 import Browser
 import Example exposing (..)
+import Form.Decoder as Form
 import Html exposing (Html)
 import Html.Attributes as HA
 import Html.Form as Form
@@ -78,6 +79,18 @@ viewExampleForm model =
 
         myTextState =
             Form.controlState exampleForm MyText model
+
+        myCheckboxesErr =
+            Form.fieldErrors exampleForm (List.map MyCheckboxes animals) model
+                |> List.head
+
+        errField mErr =
+            case mErr of
+                Just err ->
+                    [ Html.text ("Error: " ++ err) ]
+
+                Nothing ->
+                    []
     in
     Html.form (Form.formAttrs FormMsg)
         -- Text
@@ -86,13 +99,7 @@ viewExampleForm model =
                 [ Html.text "My text field:"
                 , Form.textInput FormMsg exampleForm MyText model
                 ]
-                :: (case myTextState.error of
-                        Just err ->
-                            [ Html.text ("Error: " ++ err) ]
-
-                        Nothing ->
-                            []
-                   )
+                :: errField myTextState.error
             )
 
         -- Checkbox
@@ -121,6 +128,7 @@ viewExampleForm model =
             |> Form.select FormMsg exampleForm MySelect
 
         -- Checkboxes
+        , Html.p [] (errField myCheckboxesErr)
         , animals
             |> List.map
                 (\animal ->
@@ -150,34 +158,37 @@ exampleForm : ExampleControl -> Form.Control String Example
 exampleForm key =
     case key of
         MyText ->
-            Form.stringControl (\v d -> { d | myText = v })
-                "myText"
-                |> Form.withValidator
-                    (\str out ->
-                        if String.isEmpty str then
-                            Err "Text field cannot be empty"
-
-                        else
-                            Ok out
-                    )
+            Form.stringControl
+                { name = "myText"
+                , validators = [ Form.minLength "Text field cannot be empty" 1 ]
+                , update = \v d -> { d | myText = v }
+                }
 
         MyCheckbox ->
             Form.checkedControl
-                (\d -> { d | myCheckbox = True })
-                (\d -> { d | myCheckbox = False })
-                "myCheckbox"
-                "y"
+                { name = "myCheckbox"
+                , value = "y"
+                , validators = []
+                , update = \v d -> { d | myCheckbox = v }
+                }
 
         MyRadio animal ->
             Form.checkedControl
-                (\d -> { d | myRadio = Just animal })
-                (\d -> { d | myRadio = Nothing })
-                "myRadio"
-                (animalToString animal)
+                { name = "myRadio"
+                , value = animalToString animal
+                , validators = []
+                , update =
+                    Form.onOffUpdate
+                        (\d -> { d | myRadio = Just animal })
+                        (\d -> { d | myRadio = Nothing })
+                }
 
         MySelect ->
-            Form.stringControl (\v d -> { d | mySelect = stringToAnimal v })
-                "mySelect"
+            Form.stringControl
+                { name = "mySelect"
+                , validators = []
+                , update = \v d -> { d | mySelect = stringToAnimal v }
+                }
 
         MyCheckboxes animal ->
             let
@@ -185,7 +196,11 @@ exampleForm key =
                     animalToString animal
             in
             Form.checkedControl
-                (\d -> { d | myCheckboxes = animal :: d.myCheckboxes })
-                (\d -> { d | myCheckboxes = List.filter ((/=) animal) d.myCheckboxes })
-                ("myCheckboxes-" ++ id)
-                id
+                { name = "myCheckboxes-" ++ id
+                , value = id
+                , validators = []
+                , update =
+                    Form.checkedListUpdate animal
+                        .myCheckboxes
+                        (\v d -> { d | myCheckboxes = v })
+                }
