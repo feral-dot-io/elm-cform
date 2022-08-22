@@ -26,13 +26,21 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
+    let
+        cat =
+            animalToString Cat
+
+        zebra =
+            animalToString Zebra
+    in
     ( { form =
             Form.init Example.emptyExample
-                |> Form.setString exampleForm MyText "hello world"
-                |> Form.setChecked exampleForm MyCheckbox True
-                |> Form.setChecked exampleForm (MyRadio Zebra) True
-                |> Form.setString exampleForm MySelect (animalToString Zebra)
-                |> Form.setChecked exampleForm (MyCheckboxes Zebra) True
+                |> Form.setString exampleForm MyText "myText" "hello world"
+                |> Form.setChecked exampleForm MyCheckbox "myCheckbox" "y" True
+                |> Form.setChecked exampleForm MyRadio "myRadio" zebra True
+                |> Form.setString exampleForm MySelect "mySelect" zebra
+                |> Form.setChecked exampleForm MyCheckboxes ("myCheckboxes-" ++ cat) cat True
+                |> Form.setChecked exampleForm MyCheckboxes ("myCheckboxes-" ++ zebra) zebra True
       , submitted = []
       }
     , Cmd.none
@@ -77,15 +85,8 @@ viewExampleForm model =
         animals =
             [ Dog, Cat, Zebra ]
 
-        myTextState =
-            Form.controlState exampleForm MyText model
-
-        myCheckboxesErr =
-            Form.fieldErrors exampleForm (List.map MyCheckboxes animals) model
-                |> List.head
-
-        errField mErr =
-            case mErr of
+        errToText state =
+            case state.error of
                 Just err ->
                     [ Html.text ("Error: " ++ err) ]
 
@@ -97,15 +98,15 @@ viewExampleForm model =
         [ Html.p []
             (Html.label []
                 [ Html.text "My text field:"
-                , Form.textInput FormMsg exampleForm MyText model
+                , Form.textInput FormMsg MyText "myText" "hello world" model
                 ]
-                :: errField myTextState.error
+                :: errToText (Form.fieldState MyText model)
             )
 
         -- Checkbox
         , Html.p []
             [ Html.label []
-                [ Form.checkbox FormMsg exampleForm MyCheckbox model
+                [ Form.checkbox FormMsg MyCheckbox "myCheckbox" "y" True model
                 , Html.text "my checkbox"
                 ]
             ]
@@ -114,27 +115,38 @@ viewExampleForm model =
         , animals
             |> List.map
                 (\animal ->
+                    let
+                        id =
+                            animalToString animal
+                    in
                     Html.label []
-                        [ Form.radio FormMsg exampleForm (MyRadio animal) model
-                        , Html.text (animalToString animal)
+                        [ Form.radio FormMsg MyRadio "myRadio" id (animal == Zebra) model
+                        , Html.text id
                         ]
                 )
             |> Html.p []
 
-        -- Select (no working default values)
+        -- Select
         , animals
             |> List.map animalToString
-            |> List.map (\id -> Html.option [ HA.value id ] [ Html.text id ])
-            |> Form.select FormMsg exampleForm MySelect
+            |> List.map (\id -> Form.option "mySelect" id (animalToString Zebra) id model)
+            |> Form.select FormMsg MySelect "mySelect"
 
         -- Checkboxes
-        , Html.p [] (errField myCheckboxesErr)
+        --, Html.p [] (errToText (Form.fieldError "myChec" myCheckboxesErr))
         , animals
             |> List.map
                 (\animal ->
+                    let
+                        id =
+                            animalToString animal
+
+                        default =
+                            List.member animal [ Cat, Zebra ]
+                    in
                     Html.label []
-                        [ Form.checkbox FormMsg exampleForm (MyCheckboxes animal) model
-                        , Html.text (animalToString animal)
+                        [ Form.checkbox FormMsg MyCheckboxes ("myCheckboxes-" ++ id) id default model
+                        , Html.text id
                         ]
                 )
             |> Html.p []
@@ -149,58 +161,45 @@ viewExampleForm model =
 type ExampleControl
     = MyText
     | MyCheckbox
-    | MyRadio Animal
+    | MyRadio
     | MySelect
-    | MyCheckboxes Animal
+    | MyCheckboxes
 
 
-exampleForm : ExampleControl -> Form.Control String Example
+exampleForm : ExampleControl -> Form.Field String Example
 exampleForm key =
     case key of
         MyText ->
-            Form.stringControl
-                { name = "myText"
-                , validators = [ Form.minLength "Text field cannot be empty" 1 ]
-                , update = \v d -> { d | myText = v }
-                }
+            Form.stringField (\v d -> { d | myText = v })
 
+        --|> Form.assert (Form.minLength "Text field cannot be empty" 1)
         MyCheckbox ->
-            Form.checkedControl
-                { name = "myCheckbox"
-                , value = "y"
-                , validators = []
-                , update = \v d -> { d | myCheckbox = v }
-                }
+            Form.boolField (\v d -> { d | myCheckbox = v })
 
-        MyRadio animal ->
-            Form.checkedControl
-                { name = "myRadio"
-                , value = animalToString animal
-                , validators = []
-                , update =
-                    Form.onOffUpdate
-                        (\d -> { d | myRadio = Just animal })
-                        (\d -> { d | myRadio = Nothing })
-                }
+        MyRadio ->
+            Form.stringField (\v d -> { d | myRadio = stringToAnimal v })
 
         MySelect ->
-            Form.stringControl
-                { name = "mySelect"
-                , validators = []
-                , update = \v d -> { d | mySelect = stringToAnimal v }
-                }
+            Form.stringField (\v d -> { d | mySelect = stringToAnimal v })
 
-        MyCheckboxes animal ->
-            let
-                id =
-                    animalToString animal
-            in
-            Form.checkedControl
-                { name = "myCheckboxes-" ++ id
-                , value = id
-                , validators = []
-                , update =
-                    Form.checkedListUpdate animal
-                        .myCheckboxes
-                        (\v d -> { d | myCheckboxes = v })
-                }
+        MyCheckboxes ->
+            Form.checkedField
+                (\v d ->
+                    { d
+                        | myCheckboxes =
+                            case stringToAnimal v of
+                                Just animal ->
+                                    animal :: d.myCheckboxes
+
+                                Nothing ->
+                                    d.myCheckboxes
+                    }
+                )
+                (\v d ->
+                    { d
+                        | myCheckboxes =
+                            List.filter
+                                (\check -> Just check /= stringToAnimal v)
+                                d.myCheckboxes
+                    }
+                )

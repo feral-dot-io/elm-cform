@@ -1,33 +1,35 @@
 module Html.Form exposing
     ( Control
-    , ControlState
+    , Field
     , Form
     , Model
     , Msg
     , SubmitTrigger
     , attrs
     , autoSubmit
+    , boolField
     , checkbox
-    , checkedControl
-    , checkedListUpdate
+    , checkedAttrs
+    , checkedField
     , controlState
-    , emptyControl
-    , fieldErrors
+    , emptyField
+    , fieldState
     , formAttrs
     , init
     , onFormSubmit
-    , onOffUpdate
+    , option
+    , optionAttrs
     , radio
     , select
+    , selectAttrs
     , setChecked
     , setString
-    , stringControl
+    , stringField
     , textInput
     , update
     )
 
 import Dict exposing (Dict)
-import Form.Decoder as FD
 import Html exposing (Html)
 import Html.Attributes as HA
 import Html.Events as HE
@@ -49,23 +51,20 @@ import Json.Decode as JD
 
 {-| The Form type holds a conversion function that maps our `control` type to a `Control`
 -}
-type alias Form control err out =
-    control -> Control err out
+type alias Form field err out =
+    field -> Field err out
 
 
 {-| Represents a form control. Used to create the events of a page's Html attributes
 -}
-type Control err out
-    = Control
-        { name : String
-        , value : ControlValue
-        , decoder : out -> FD.Decoder (Maybe String) err out
+type Field err out
+    = Field
+        { update : DbValue -> out -> Result err out
         }
 
 
-type ControlValue
-    = StringControl
-    | CheckedControl String
+type alias Control =
+    String
 
 
 
@@ -74,13 +73,13 @@ type ControlValue
 
 {-| Holds our internal DB tracking a form's current values
 -}
-type Model control err out
-    = Model (Db control err out)
+type Model field err out
+    = Model (Db field err out)
 
 
 {-| Creates an empty model. Requires an empty value for our returned `out` record. This `out` record is never read and not used in the form's HTML -- fields are only set in response to events. You should use `setString` and setChecked\` to set initial values in the form.
 -}
-init : out -> Model control err out
+init : out -> Model field err out
 init emptyOut =
     Model (emptyDB emptyOut)
 
@@ -91,9 +90,9 @@ init emptyOut =
 
 {-| Holds our form events.
 -}
-type Msg control out
-    = OnInput control (Maybe String)
-    | OnBlur control
+type Msg field out
+    = OnInput (Event field)
+    | OnBlur field
     | OnSubmit
 
 
@@ -103,11 +102,11 @@ type Msg control out
         |> Form.autoSubmit onSubmit (\f -> { model | formModel = f })
 
 -}
-update : Form control err out -> Msg control out -> Model control err out -> ( Model control err out, SubmitTrigger )
+update : Form field err out -> Msg field out -> Model field err out -> ( Model field err out, SubmitTrigger )
 update form msg model =
     case msg of
-        OnInput ctrl val ->
-            ( updateModel form ctrl val model, SubmitOnInput )
+        OnInput event ->
+            ( updateModel form event model, SubmitOnInput )
 
         OnBlur _ ->
             ( model, SubmitOnBlur )
@@ -131,17 +130,17 @@ type SubmitTrigger
 onSubmit :
     List SubmitTrigger
     -> (model -> out -> ( model, Cmd msg ))
-    -> (Model control err out -> model)
-    -> ( Model control err out, SubmitTrigger )
+    -> (Model field err out -> model)
+    -> ( Model field err out, SubmitTrigger )
     -> ( model, Cmd msg )
 onSubmit strategies next setter ( model, sub ) =
     let
         (Model db) =
             model
     in
-    if List.member sub strategies && Dict.isEmpty db.errors then
+    if List.member sub strategies && List.isEmpty db.errors then
         next
-            (setter (resetTouched model))
+            (setter (resetSinceSubmit model))
             (currentOutput model)
 
     else
@@ -150,14 +149,14 @@ onSubmit strategies next setter ( model, sub ) =
 
 {-| Processes return values from form updates. Runs a callback whenever any form input changes. For example used on a search query that does something as the user types.
 -}
-autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model control err out -> model) -> ( Model control err out, SubmitTrigger ) -> ( model, Cmd msg )
+autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model field err out -> model) -> ( Model field err out, SubmitTrigger ) -> ( model, Cmd msg )
 autoSubmit =
     onSubmit [ SubmitOnInput, SubmitOnForm ]
 
 
 {-| Similiar to autoSubmit: processes form updates. Updates when a form is submitted. For example the user clicks a `<button type="submit">` or presses enter on a text input.
 -}
-onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model control err out -> model) -> ( Model control err out, SubmitTrigger ) -> ( model, Cmd msg )
+onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model field err out -> model) -> ( Model field err out, SubmitTrigger ) -> ( model, Cmd msg )
 onFormSubmit =
     onSubmit [ SubmitOnForm ]
 
@@ -168,166 +167,209 @@ onFormSubmit =
 
 {-| Holds our internal form state.
 -}
-type alias Db control err out =
+type alias Db field err out =
     { out : out
-    , touched : Dict String control
-    , state : Dict String String
-    , errors : Dict String (List err)
+    , state : Dict String DbValue
+    , errors : List ( field, err )
+    , touched : List field
+    , touchedSinceSubmit : List field
+    , changed : List field
+    , changedSinceSubmit : List field
     }
 
 
-emptyDB : out -> Db control err out
+type alias DbValue =
+    ( String, Bool )
+
+
+emptyDB : out -> Db field err out
 emptyDB emptyOut =
-    Db emptyOut Dict.empty Dict.empty Dict.empty
+    Db emptyOut Dict.empty [] [] [] [] []
 
 
 {-| Returns the model's current output built up from form events.
 -}
-currentOutput : Model control err out -> out
+currentOutput : Model field err out -> out
 currentOutput (Model db) =
     db.out
 
 
-resetTouched : Model control err out -> Model control err out
-resetTouched (Model db) =
-    Model { db | touched = Dict.empty }
+resetSinceSubmit : Model field err out -> Model field err out
+resetSinceSubmit (Model db) =
+    Model { db | touchedSinceSubmit = [], changedSinceSubmit = [] }
 
 
-updateModel : Form control err out -> control -> Maybe String -> Model control err out -> Model control err out
-updateModel form ctrlKey value (Model db) =
+updateModel : Form field err out -> Event field -> Model field err out -> Model field err out
+updateModel form event (Model db) =
     let
-        (Control ctrl) =
-            form ctrlKey
+        (Field field) =
+            form event.field
+
+        addField s =
+            if List.member event.field s then
+                s
+
+            else
+                event.field :: s
 
         -- Update our tracking state
         db2 =
             { db
-                | touched = Dict.insert ctrl.name ctrlKey db.touched
-                , errors = Dict.remove ctrl.name db.errors
-                , state =
-                    case value of
-                        Just str ->
-                            Dict.insert ctrl.name str db.state
+              -- Touched / changed
+                | touched = addField db.touched
+                , touchedSinceSubmit = addField db.touchedSinceSubmit
+                , changed = addField db.changed
+                , changedSinceSubmit = addField db.changedSinceSubmit
 
-                        Nothing ->
-                            Dict.remove ctrl.name db.state
+                -- State change
+                , state = Dict.insert event.control event.value db.state
+                , errors =
+                    List.filter (\( check, _ ) -> check /= event.field)
+                        db.errors
             }
-
-        -- Update our output or error
-        db3 =
-            case FD.run (ctrl.decoder db2.out) value of
-                Ok out ->
-                    { db2 | out = out }
-
-                Err errs ->
-                    { db2 | errors = Dict.insert ctrl.name errs db2.errors }
     in
-    Model db3
+    Model
+        -- Update our output or error
+        (case field.update event.value db2.out of
+            Ok out ->
+                { db2 | out = out }
+
+            Err err ->
+                { db2 | errors = ( event.field, err ) :: db2.errors }
+        )
 
 
 {-| Sets the value for a string-based control. Used for initial form values.
 -}
-setString : Form control err out -> control -> String -> Model control err out -> Model control err out
-setString form ctrl val model =
-    updateModel form ctrl (Just val) model
+setString : Form field err out -> field -> Control -> String -> Model field err out -> Model field err out
+setString form field ctrl val =
+    updateModel form
+        { field = field
+        , control = ctrl
+        , value = ( val, True )
+        }
 
 
-{-| Sets the default checked (on / off) state for a checkbox or radio control. Used for initial form values.
--}
-setChecked : Form control err out -> control -> Bool -> Model control err out -> Model control err out
-setChecked form ctrlKey checked model =
-    let
-        (Control { value }) =
-            form ctrlKey
-
-        -- Retrieve checked value
-        val =
-            case value of
-                CheckedControl constant ->
-                    if checked then
-                        Just constant
-
-                    else
-                        Nothing
-
-                StringControl ->
-                    Nothing
-    in
-    updateModel form ctrlKey val model
+setChecked : Form field err out -> field -> Control -> String -> Bool -> Model field err out -> Model field err out
+setChecked form field ctrl val checked =
+    updateModel form
+        { field = field
+        , control = ctrl
+        , value = ( val, checked )
+        }
 
 
 
 -- Creating a control
 
 
-fieldDecoder :
-    (Maybe String -> temp)
-    -> { a | validators : List (FD.Validator temp err), update : temp -> out -> out }
-    -> out
-    -> FD.Decoder (Maybe String) err out
-fieldDecoder toTemp c out =
-    FD.identity
-        |> FD.map toTemp
-        |> FD.pass (List.foldl FD.assert FD.identity c.validators)
-        |> FD.map (\temp -> c.update temp out)
+stringField : (String -> out -> out) -> Field err out
+stringField set =
+    Field { update = \( value, _ ) out -> Ok (set value out) }
 
 
-stringControl :
-    { name : String
-    , validators : List (FD.Validator String err)
-    , update : String -> out -> out
-    }
-    -> Control err out
-stringControl c =
-    Control
-        { name = c.name
-        , value = StringControl
-        , decoder = fieldDecoder (Maybe.withDefault "") c
+checkedField : (String -> out -> out) -> (String -> out -> out) -> Field err out
+checkedField on off =
+    Field
+        { update =
+            \( value, checked ) out ->
+                Ok
+                    (if checked then
+                        on value out
+
+                     else
+                        off value out
+                    )
         }
 
 
-checkedControl :
-    { name : String
-    , value : String
-    , validators : List (FD.Validator Bool err)
-    , update : Bool -> out -> out
-    }
-    -> Control err out
-checkedControl c =
-    Control
-        { name = c.name
-        , value = CheckedControl c.value
-        , decoder = fieldDecoder (\state -> state == Just c.value) c
-        }
-
-
-onOffUpdate : (out -> out) -> (out -> out) -> Bool -> out -> out
-onOffUpdate on off v d =
-    if v then
-        on d
-
-    else
-        off d
-
-
-checkedListUpdate : option -> (out -> List option) -> (List option -> out -> out) -> Bool -> out -> out
-checkedListUpdate opt get set =
-    onOffUpdate
-        -- Add
-        (\d -> set (opt :: get d) d)
-        -- Remove
-        (\d -> set (List.filter ((/=) opt) (get d)) d)
+boolField : (Bool -> out -> out) -> Field err out
+boolField set =
+    Field { update = \( _, checked ) out -> Ok (set checked out) }
 
 
 {-| A control that ignores all events and doesn't output a form's output. The nil or no-op event.
 -}
-emptyControl : Control err out
-emptyControl =
-    Control
-        { name = ""
-        , value = StringControl
-        , decoder = \out -> FD.always out
-        }
+emptyField : Field err out
+emptyField =
+    Field { update = \_ out -> Ok out }
+
+
+
+-- State handling
+
+
+type alias FieldState field err =
+    { field : field
+    , error : Maybe err
+    , touched : Bool
+    , touchedSinceSubmit : Bool
+    , changed : Bool
+    , changedSinceSubmit : Bool
+    }
+
+
+fieldState : field -> Model field err out -> FieldState field err
+fieldState fieldKey (Model db) =
+    { field = fieldKey
+    , error =
+        db.errors
+            |> List.filterMap
+                (\( check, err ) ->
+                    if check == fieldKey then
+                        Just err
+
+                    else
+                        Nothing
+                )
+            |> List.head
+    , touched = List.member fieldKey db.touched
+    , touchedSinceSubmit = List.member fieldKey db.touchedSinceSubmit
+    , changed = List.member fieldKey db.changed
+    , changedSinceSubmit = List.member fieldKey db.changedSinceSubmit
+    }
+
+
+type alias ControlState =
+    { control : Control
+    , value : String
+    , checked : Bool
+    , touched : Bool
+    , touchedSinceSubmit : Bool
+    , changed : Bool
+    , changedSinceSubmit : Bool
+    }
+
+
+controlValue : Control -> String -> Model field err out -> DbValue
+controlValue ctrl default (Model db) =
+    Dict.get ctrl db.state
+        |> Maybe.withDefault ( default, default /= "" )
+
+
+controlIsChecked : String -> DbValue -> Bool
+controlIsChecked ctrlValue ( value, checked ) =
+    if value == ctrlValue then
+        checked
+
+    else
+        False
+
+
+controlState : field -> Control -> String -> Model field err out -> ControlState
+controlState fieldKey ctrl default (Model db) =
+    let
+        ( value, checked ) =
+            controlValue ctrl default (Model db)
+    in
+    { control = ctrl
+    , value = value
+    , checked = checked
+    , touched = List.member fieldKey db.touched
+    , touchedSinceSubmit = List.member fieldKey db.touchedSinceSubmit
+    , changed = List.member fieldKey db.changed
+    , changedSinceSubmit = List.member fieldKey db.changedSinceSubmit
+    }
 
 
 
@@ -336,151 +378,123 @@ emptyControl =
 
 {-| Attributes to be used on a Html.form. For example `Html.form (Form.formAttrs FormMsg) [ ... ]`
 -}
-formAttrs : (Msg control out -> msg) -> List (Html.Attribute msg)
+formAttrs : (Msg field out -> msg) -> List (Html.Attribute msg)
 formAttrs toMsg =
     [ HE.onSubmit (toMsg OnSubmit) ]
 
 
-{-| Uses targetChecked to send a control's value or not. An empty string is not special so we use a Maybe here.
--}
-checkedDecoder : String -> JD.Decoder (Maybe String)
-checkedDecoder constant =
-    JD.map
-        -- We're expecting an on/off: send whole value or not
-        (\checked ->
-            if checked then
-                Just constant
+type alias Event field =
+    { field : field
+    , control : Control
+    , value : DbValue
+    }
 
-            else
-                Nothing
+
+eventDecoder : field -> JD.Decoder Bool -> JD.Decoder (Event field)
+eventDecoder field checkedDecoder =
+    JD.map2 (Event field)
+        (JD.at [ "target", "name" ] JD.string)
+        (JD.map2 Tuple.pair
+            HE.targetValue
+            checkedDecoder
         )
-        HE.targetChecked
 
 
-{-| Sends an event's target value. Always send a string: an empty string is not a missing value.
--}
-alwaysTargetValueDecoder : JD.Decoder (Maybe String)
-alwaysTargetValueDecoder =
-    -- Always send target's value
-    JD.map Just HE.targetValue
+stringEventDecoder : field -> JD.Decoder (Event field)
+stringEventDecoder field =
+    eventDecoder field (JD.succeed True)
 
 
-{-| Builds our event-based attributes.
--}
-eventAttrs : (Msg control out -> msg) -> Form control err out -> control -> List (Html.Attribute msg)
-eventAttrs toMsg form ctrlKey =
-    let
-        (Control ctrl) =
-            form ctrlKey
+checkedEventDecoder : field -> JD.Decoder (Event field)
+checkedEventDecoder field =
+    eventDecoder field HE.targetChecked
 
-        eventDecoder =
-            case ctrl.value of
-                StringControl ->
-                    alwaysTargetValueDecoder
 
-                CheckedControl value ->
-                    checkedDecoder value
-    in
+attrs : (Msg field out -> msg) -> field -> Control -> String -> Model field err out -> List (Html.Attribute msg)
+attrs toMsg field ctrl default model =
     [ HE.stopPropagationOn "input"
         (JD.map
-            (\event -> ( toMsg (OnInput ctrlKey event), True ))
-            eventDecoder
+            (\event -> ( toMsg (OnInput event), True ))
+            (stringEventDecoder field)
         )
-    , HE.onBlur (toMsg (OnBlur ctrlKey))
-    , HA.name ctrl.name
+    , HE.onBlur (toMsg (OnBlur field))
+    , HA.name ctrl
+    , HA.value (controlValue ctrl default model |> Tuple.first)
     ]
 
 
-{-| Builds our state-based attributes.
--}
-stateAttrs : Form control err out -> control -> Model control err out -> List (Html.Attribute msg)
-stateAttrs form ctrlKey (Model db) =
+checkedAttrs : (Msg field out -> msg) -> field -> Control -> String -> Bool -> Model field err out -> List (Html.Attribute msg)
+checkedAttrs toMsg fieldKey ctrl value default model =
     let
-        (Control ctrl) =
-            form ctrlKey
+        defaultVal =
+            if default then
+                value
 
-        currentState =
-            Dict.get ctrl.name db.state
-                |> Maybe.withDefault ""
+            else
+                ""
     in
-    case ctrl.value of
-        StringControl ->
-            [ HA.value currentState
-            ]
-
-        CheckedControl value ->
-            [ HA.value value
-            , HA.checked (currentState == value)
-            ]
-
-
-{-| HTML attributes to put on a control's HTML. Includes our current state and events.
--}
-attrs : (Msg control out -> msg) -> Form control err out -> control -> Model control err out -> List (Html.Attribute msg)
-attrs toMsg form ctrl model =
-    eventAttrs toMsg form ctrl ++ stateAttrs form ctrl model
+    [ HE.stopPropagationOn "input"
+        (JD.map
+            (\event -> ( toMsg (OnInput event), True ))
+            (checkedEventDecoder fieldKey)
+        )
+    , HE.onBlur (toMsg (OnBlur fieldKey))
+    , HA.name ctrl
+    , HA.value value
+    , HA.checked (controlValue ctrl defaultVal model |> controlIsChecked value)
+    ]
 
 
-type alias ControlState err =
-    { name : String
-    , value : String
-    , error : Maybe err
-    , changed : Bool
-    , changedSinceSubmit : Bool
-    }
+optionAttrs : Control -> String -> String -> Model field err out -> List (Html.Attribute msg)
+optionAttrs ctrl value default model =
+    [ HA.value value
+    , HA.selected (controlValue ctrl default model |> controlIsChecked value)
+    ]
 
 
-controlState : Form control err out -> control -> Model control err out -> ControlState err
-controlState form ctrlKey (Model db) =
-    let
-        (Control ctrl) =
-            form ctrlKey
-
-        state =
-            Dict.get ctrl.name db.state
-    in
-    { name = ctrl.name
-    , value = Maybe.withDefault "" state
-    , error =
-        Dict.get ctrl.name db.errors
-            |> Maybe.andThen List.head
-    , changed = state /= Nothing
-    , changedSinceSubmit = Dict.member ctrl.name db.touched
-    }
-
-
-fieldErrors : Form control err out -> List control -> Model control err out -> List err
-fieldErrors form controls model =
-    List.filterMap (\c -> (controlState form c model).error) controls
+selectAttrs : (Msg field out -> msg) -> field -> Control -> List (Html.Attribute msg)
+selectAttrs toMsg fieldKey ctrl =
+    [ HE.on "change"
+        (JD.map (OnInput >> toMsg)
+            (stringEventDecoder fieldKey)
+        )
+    , HE.onBlur (toMsg (OnBlur fieldKey))
+    , HA.name ctrl
+    ]
 
 
 
--- Helper Html elements
+-- Helper functions for Html
 
 
 {-| Helper function to build a text input `Html.input [Html.type_ "text", ...] []`
 -}
-textInput : (Msg control out -> msg) -> Form control err out -> control -> Model control err out -> Html msg
-textInput toMsg form control model =
-    Html.input (HA.type_ "text" :: attrs toMsg form control model) []
+textInput : (Msg field out -> msg) -> field -> Control -> String -> Model field err out -> Html msg
+textInput toMsg field ctrl default model =
+    Html.input (HA.type_ "text" :: attrs toMsg field ctrl default model) []
 
 
 {-| Helper function to build a checkbox `Html.input [Html.type_ "checkbox", ...] []`
 -}
-checkbox : (Msg control out -> msg) -> Form control err out -> control -> Model control err out -> Html msg
-checkbox toMsg form control model =
-    Html.input (HA.type_ "checkbox" :: attrs toMsg form control model) []
+checkbox : (Msg field out -> msg) -> field -> Control -> String -> Bool -> Model field err out -> Html msg
+checkbox toMsg field ctrl value default model =
+    Html.input (HA.type_ "checkbox" :: checkedAttrs toMsg field ctrl value default model) []
 
 
 {-| Helper function to build a radio `Html.input [Html.type_ "radio", ...] []`
 -}
-radio : (Msg control out -> msg) -> Form control err out -> control -> Model control err out -> Html msg
-radio toMsg form control model =
-    Html.input (HA.type_ "radio" :: attrs toMsg form control model) []
+radio : (Msg field out -> msg) -> field -> Control -> String -> Bool -> Model field err out -> Html msg
+radio toMsg field ctrl value default model =
+    Html.input (HA.type_ "radio" :: checkedAttrs toMsg field ctrl value default model) []
 
 
-{-| Helper function to build a select `Html.select [...] options`
--}
-select : (Msg control out -> msg) -> Form control err out -> control -> List (Html msg) -> Html msg
-select toMsg form control options =
-    Html.select (eventAttrs toMsg form control) options
+option : Control -> String -> String -> String -> Model field err out -> Html msg
+option ctrl value default label model =
+    Html.option
+        (optionAttrs ctrl value default model)
+        [ Html.text label ]
+
+
+select : (Msg field out -> msg) -> field -> Control -> List (Html msg) -> Html msg
+select toMsg field ctrl options =
+    Html.select (selectAttrs toMsg field ctrl) options

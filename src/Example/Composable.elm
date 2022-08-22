@@ -70,7 +70,7 @@ exampleForm =
             [ Cat, Dog, Zebra ]
 
         myTextField =
-            Form.textField
+            Form.inputField
                 (\v d -> { d | myText = v })
                 [ Form.textLabel "myText" ]
 
@@ -78,17 +78,19 @@ exampleForm =
             Form.checkboxField (\v d -> { d | myCheckbox = v })
                 [ Form.textLabel "myCheckbox" ]
 
-        myRadioForm =
-            Form.radiosForm (\v d -> { d | myRadio = v })
+        myRadioField =
+            Form.radiosField (\v d -> { d | myRadio = v })
                 animalToString
                 animals
+                [ Form.textLabel "myRadio" ]
 
-        myCheckboxesForm =
-            Form.checkboxesForm
+        myCheckboxesField =
+            Form.checkboxesField
                 (\v d -> { d | myCheckboxes = v :: d.myCheckboxes })
                 (\v d -> { d | myCheckboxes = List.filter ((/=) v) d.myCheckboxes })
                 animalToString
                 animals
+                [ Form.textLabel "myCheckboxes" ]
     in
     Form.empty
         |> Form.append
@@ -97,7 +99,7 @@ exampleForm =
                 |> Form.append myCheckboxField
                 |> Form.column
             )
-        |> Form.append (myRadioForm |> Form.column)
+        |> Form.append myRadioField
         -- TODO <select>
-        |> Form.append (myCheckboxesForm |> Form.row)
+        |> Form.append myCheckboxesField
         |> Form.append (Form.submit "Submit")
