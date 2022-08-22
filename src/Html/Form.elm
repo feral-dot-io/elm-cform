@@ -401,31 +401,31 @@ type alias Event field =
     }
 
 
-eventDecoder : field -> (Bool -> String -> Maybe String) -> JD.Decoder (Event field)
-eventDecoder field checkedHandler =
+eventDecoder : field -> JD.Decoder Bool -> JD.Decoder (Event field)
+eventDecoder field getChecked =
     JD.map2 (Event field)
         (JD.at [ "target", "name" ] JD.string)
-        (JD.map2 checkedHandler
-            HE.targetChecked
+        (JD.map2
+            (\checked value ->
+                if checked then
+                    Just value
+
+                else
+                    Nothing
+            )
+            getChecked
             HE.targetValue
         )
 
 
 stringEventDecoder : field -> JD.Decoder (Event field)
 stringEventDecoder field =
-    eventDecoder field (\_ value -> Just value)
+    eventDecoder field (JD.succeed True)
 
 
 checkedEventDecoder : field -> JD.Decoder (Event field)
 checkedEventDecoder field =
-    eventDecoder field
-        (\checked value ->
-            if checked then
-                Just value
-
-            else
-                Nothing
-        )
+    eventDecoder field HE.targetChecked
 
 
 attrs : (Msg field out -> msg) -> field -> Control -> Model field err out -> List (Html.Attribute msg)
