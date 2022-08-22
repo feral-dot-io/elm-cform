@@ -23,7 +23,7 @@ module Composable.Form exposing
     , label
     , onFormSubmit
     , placeholder
-    , radiosField
+    , radioField
     , row
     , selectField
     , submit
@@ -55,9 +55,17 @@ type alias Key =
 
 type Field out
     = Field
-        { field : Key -> Base.Field Error out
-        , view : Key -> Model out -> List (Html (Msg out))
+        { field : Key -> Key -> Base.Field Error out
+        , view : ViewConfig out -> Key -> List (Html (Msg out))
         }
+
+
+type alias ViewConfig out =
+    { id : String
+    , form : Form out
+    , base : BaseForm out
+    , model : Model out
+    }
 
 
 type alias Error =
@@ -105,11 +113,17 @@ onFormSubmit =
 
 
 view : (Msg out -> msg) -> String -> Form out -> Model out -> Html msg
-view toMsg formId form db =
+view toMsg formId form model =
     let
+        config =
+            { id = formId
+            , form = form
+            , base = formToBase form
+            , model = model
+            }
+
         children =
-            formFields form
-                |> viewFields Array.empty db
+            viewFields config Array.empty (formFields form)
     in
     Html.form
         (HA.id formId :: Base.formAttrs identity)
@@ -117,12 +131,16 @@ view toMsg formId form db =
         |> Html.map toMsg
 
 
-viewFields : Key -> Model out -> List (Field out) -> List (Html (Msg out))
-viewFields prefix db fields =
+
+-- TODO: should fields come first?
+
+
+viewFields : ViewConfig out -> Key -> List (Field out) -> List (Html (Msg out))
+viewFields config prefix fields =
     let
         viewField i (Field field) =
             Html.div [ HA.class "field" ]
-                (field.view (Array.push i prefix) db)
+                (field.view config (Array.push i prefix))
     in
     List.indexedMap viewField fields
 
@@ -173,21 +191,26 @@ formFields (Form fields) =
 
 formToBase : Form out -> BaseForm out
 formToBase (Form fields) key =
-    onBranch fields key
+    onBranch fields key key
 
 
-onLeaf : Base.Field String out -> Key -> Base.Field String out
-onLeaf cb _ =
-    cb
+onLeaf : (String -> Base.Field String out) -> Key -> Key -> Base.Field String out
+onLeaf cb fullKey _ =
+    cb (keyToString fullKey)
 
 
-onBranch : List (Field out) -> Key -> Base.Field String out
-onBranch fields key =
+onKeyedLeaf : (Key -> Base.Field String out) -> Key -> Key -> Base.Field String out
+onKeyedLeaf cb fullKey _ =
+    cb fullKey
+
+
+onBranch : List (Field out) -> Key -> Key -> Base.Field String out
+onBranch fields fullKey key =
     Array.get 0 key
         |> Maybe.andThen (\i -> List.getAt i fields)
         |> Maybe.map
             (\(Field field) ->
-                field.field (Array.slice 1 (Array.length key) key)
+                field.field fullKey (Array.slice 1 (Array.length key) key)
             )
         |> Maybe.withDefault Base.emptyField
 
@@ -266,11 +289,11 @@ inputField set attrs =
     Field
         { field = onLeaf (Base.stringField set)
         , view =
-            \key db ->
+            \{ base, model } key ->
                 withLeftLabel c.common.label
                     [ Html.input
                         (HA.type_ c.type_
-                            :: Base.attrs identity key (keyToString key) db
+                            :: Base.attrs identity base key model
                         )
                         []
                     ]
@@ -300,15 +323,15 @@ checkboxField set attrs =
     Field
         { field = onLeaf (Base.boolField set)
         , view =
-            \key db ->
+            \{ base, model } key ->
                 withRightLabel c.common.label
                     [ Base.checkbox
                         { toMsg = identity
+                        , form = base
                         , field = key
-                        , control = keyToString key
                         , value = "y"
                         }
-                        db
+                        model
                     ]
         }
 
@@ -327,29 +350,35 @@ emptyOptionConfig =
     OptionConfig emptyCommon
 
 
-radiosField : (Maybe option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig out)) -> Field out
-radiosField set toString options attrs =
+radioField : (Maybe option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig out)) -> Field out
+radioField set toString options attrs =
     let
         c =
             attrToConfig emptyOptionConfig attrs
 
+        radioUpdate opt key =
+            Base.checkedField
+                (set (Just opt))
+                (set Nothing)
+                (keyToString (Array.slice 0 -1 key))
+
         radio opt =
             let
-                asStr =
+                optStr =
                     toString opt
             in
             Field
-                { field = onLeaf (Base.checkedField (set (Just opt)) (set Nothing))
+                { field = onKeyedLeaf (radioUpdate opt)
                 , view =
-                    \key db ->
-                        withRightLabel [ Html.text asStr ]
+                    \{ base, model } key ->
+                        withRightLabel [ Html.text optStr ]
                             [ Base.radio
                                 { toMsg = identity
+                                , form = base
                                 , field = key
-                                , control = keyToString (Array.slice 0 -1 key)
-                                , value = asStr
+                                , value = optStr
                                 }
-                                db
+                                model
                             ]
                 }
     in
@@ -376,15 +405,15 @@ checkboxesField insert remove toString options attrs =
             Field
                 { field = onLeaf (Base.checkedField (insert opt) (remove opt))
                 , view =
-                    \key db ->
+                    \{ base, model } key ->
                         withRightLabel [ Html.text asStr ]
                             [ Base.checkbox
                                 { toMsg = identity
+                                , form = base
                                 , field = key
-                                , control = keyToString key
                                 , value = asStr
                                 }
-                                db
+                                model
                             ]
                 }
     in
@@ -406,24 +435,21 @@ selectField set toString fromString options attrs =
     Field
         { field = onLeaf (Base.stringField (fromString >> set))
         , view =
-            \key db ->
-                let
-                    ctrl =
-                        keyToString key
-                in
+            \{ base, model } key ->
                 withLeftLabel c.common.label
                     [ options
                         |> List.map toString
                         |> List.map
                             (\value ->
                                 Base.option
-                                    { control = ctrl
+                                    { form = base
+                                    , field = key
                                     , value = value
                                     , label = value
                                     }
-                                    db
+                                    model
                             )
-                        |> Base.select identity key ctrl
+                        |> Base.select identity base key
                     ]
         }
 
@@ -440,7 +466,7 @@ submit l =
 htmlField : List (Html (Msg out)) -> Field out
 htmlField raw =
     Field
-        { field = onLeaf Base.emptyField
+        { field = onLeaf (\_ -> Base.emptyField)
         , view = \_ _ -> raw
         }
 

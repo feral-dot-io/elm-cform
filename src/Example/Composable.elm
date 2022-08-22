@@ -85,7 +85,7 @@ exampleForm =
                 ]
 
         myRadioField =
-            Form.radiosField (\v d -> { d | myRadio = v })
+            Form.radioField (\v d -> { d | myRadio = v })
                 animalToString
                 animals
                 [ Form.textLabel "myRadio"

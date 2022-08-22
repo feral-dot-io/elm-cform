@@ -1,6 +1,5 @@
 module Html.Form exposing
-    ( Control
-    , Field
+    ( Field
     , Form
     , Model
     , Msg
@@ -11,7 +10,6 @@ module Html.Form exposing
     , checkbox
     , checkedAttrs
     , checkedField
-    , controlState
     , emptyField
     , fieldState
     , formAttrs
@@ -61,12 +59,9 @@ type alias Form field err out =
 -}
 type Field err out
     = Field
-        { update : Maybe String -> out -> Result err out
+        { name : String
+        , update : Maybe String -> out -> Result err out
         }
-
-
-type alias Control =
-    String
 
 
 
@@ -223,10 +218,10 @@ updateModel form event (Model db) =
                 , state =
                     case event.value of
                         Just str ->
-                            Dict.insert event.control str db.state
+                            Dict.insert field.name str db.state
 
                         Nothing ->
-                            Dict.remove event.control db.state
+                            Dict.remove field.name db.state
                 , errors =
                     List.filter (\( check, _ ) -> check /= event.field)
                         db.errors
@@ -245,20 +240,18 @@ updateModel form event (Model db) =
 
 {-| Sets the value for a string-based control. Used for initial form values.
 -}
-setString : Form field err out -> field -> Control -> String -> Model field err out -> Model field err out
-setString form field ctrl val =
+setString : Form field err out -> field -> String -> Model field err out -> Model field err out
+setString form field val =
     updateModel form
         { field = field
-        , control = ctrl
         , value = Just val
         }
 
 
-setChecked : Form field err out -> field -> Control -> String -> Bool -> Model field err out -> Model field err out
-setChecked form field ctrl val checked =
+setChecked : Form field err out -> field -> String -> Bool -> Model field err out -> Model field err out
+setChecked form field val checked =
     updateModel form
         { field = field
-        , control = ctrl
         , value =
             if checked then
                 Just val
@@ -272,22 +265,25 @@ setChecked form field ctrl val checked =
 -- Creating a control
 
 
-rawField : (Maybe String -> out -> out) -> Field err out
-rawField set =
-    Field { update = \value out -> Ok (set value out) }
+rawField : (Maybe String -> out -> out) -> String -> Field err out
+rawField set name =
+    Field
+        { name = name
+        , update = \value out -> Ok (set value out)
+        }
 
 
-stringField : (String -> out -> out) -> Field err out
+stringField : (String -> out -> out) -> String -> Field err out
 stringField set =
-    Field { update = \value out -> Ok (set (Maybe.withDefault "" value) out) }
+    rawField (Maybe.withDefault "" >> set)
 
 
-boolField : (Bool -> out -> out) -> Field err out
+boolField : (Bool -> out -> out) -> String -> Field err out
 boolField set =
-    Field { update = \value out -> Ok (set (value /= Nothing) out) }
+    rawField (\value out -> set (value /= Nothing) out)
 
 
-checkedField : (out -> out) -> (out -> out) -> Field err out
+checkedField : (out -> out) -> (out -> out) -> String -> Field err out
 checkedField on off =
     boolField
         (\checked out ->
@@ -299,27 +295,17 @@ checkedField on off =
         )
 
 
-optionsField : (List option -> out -> out) -> (out -> List option) -> option -> Field err out
-optionsField set get opt =
-    boolField
-        (\checked out ->
-            let
-                updated options =
-                    if checked then
-                        opt :: options
-
-                    else
-                        List.filter ((/=) opt) options
-            in
-            set (updated (get out)) out
-        )
+optionsField : (List option -> out -> out) -> (out -> List option) -> String -> option -> Field err out
+optionsField set get name opt =
+    checkedField
+        (\out -> set (opt :: get out) out)
+        (\out -> set (List.filter ((/=) opt) (get out)) out)
+        name
 
 
-{-| A control that ignores all events and doesn't output a form's output. The nil or no-op event.
--}
 emptyField : Field err out
 emptyField =
-    Field { update = \_ out -> Ok out }
+    Field { name = "", update = \_ out -> Ok out }
 
 
 
@@ -328,6 +314,7 @@ emptyField =
 
 type alias FieldState field err =
     { field : field
+    , value : Maybe String
     , error : Maybe err
     , touched : Bool
     , touchedSinceSubmit : Bool
@@ -336,50 +323,39 @@ type alias FieldState field err =
     }
 
 
-fieldState : field -> Model field err out -> FieldState field err
-fieldState fieldKey (Model db) =
-    { field = fieldKey
+fieldName : Form field err out -> field -> String
+fieldName form fieldKey =
+    let
+        (Field field) =
+            form fieldKey
+    in
+    field.name
+
+
+fieldValue : Form field err out -> field -> Model field err out -> Maybe String
+fieldValue form field (Model db) =
+    Dict.get (fieldName form field) db.state
+
+
+fieldState : Form field err out -> field -> Model field err out -> FieldState field err
+fieldState form field (Model db) =
+    { field = field
+    , value = fieldValue form field (Model db)
     , error =
         db.errors
             |> List.filterMap
                 (\( check, err ) ->
-                    if check == fieldKey then
+                    if check == field then
                         Just err
 
                     else
                         Nothing
                 )
             |> List.head
-    , touched = List.member fieldKey db.touched
-    , touchedSinceSubmit = List.member fieldKey db.touchedSinceSubmit
-    , changed = List.member fieldKey db.changed
-    , changedSinceSubmit = List.member fieldKey db.changedSinceSubmit
-    }
-
-
-type alias ControlState =
-    { control : Control
-    , value : Maybe String
-    , touched : Bool
-    , touchedSinceSubmit : Bool
-    , changed : Bool
-    , changedSinceSubmit : Bool
-    }
-
-
-controlValue : Control -> Model field err out -> Maybe String
-controlValue ctrl (Model db) =
-    Dict.get ctrl db.state
-
-
-controlState : field -> Control -> Model field err out -> ControlState
-controlState fieldKey ctrl (Model db) =
-    { control = ctrl
-    , value = controlValue ctrl (Model db)
-    , touched = List.member fieldKey db.touched
-    , touchedSinceSubmit = List.member fieldKey db.touchedSinceSubmit
-    , changed = List.member fieldKey db.changed
-    , changedSinceSubmit = List.member fieldKey db.changedSinceSubmit
+    , touched = List.member field db.touched
+    , touchedSinceSubmit = List.member field db.touchedSinceSubmit
+    , changed = List.member field db.changed
+    , changedSinceSubmit = List.member field db.changedSinceSubmit
     }
 
 
@@ -396,15 +372,13 @@ formAttrs toMsg =
 
 type alias Event field =
     { field : field
-    , control : Control
     , value : Maybe String
     }
 
 
 eventDecoder : field -> JD.Decoder Bool -> JD.Decoder (Event field)
 eventDecoder field getChecked =
-    JD.map2 (Event field)
-        (JD.at [ "target", "name" ] JD.string)
+    JD.map (Event field)
         (JD.map2
             (\checked value ->
                 if checked then
@@ -428,48 +402,48 @@ checkedEventDecoder field =
     eventDecoder field HE.targetChecked
 
 
-attrs : (Msg field out -> msg) -> field -> Control -> Model field err out -> List (Html.Attribute msg)
-attrs toMsg field ctrl model =
+attrs : (Msg field out -> msg) -> Form field err out -> field -> Model field err out -> List (Html.Attribute msg)
+attrs toMsg form field model =
     [ HE.stopPropagationOn "input"
         (JD.map
             (\event -> ( toMsg (OnInput event), True ))
             (stringEventDecoder field)
         )
     , HE.onBlur (toMsg (OnBlur field))
-    , HA.name ctrl
-    , HA.value (controlValue ctrl model |> Maybe.withDefault "")
+    , HA.name (fieldName form field)
+    , HA.value (fieldValue form field model |> Maybe.withDefault "")
     ]
 
 
-checkedAttrs : (Msg field out -> msg) -> field -> Control -> String -> Model field err out -> List (Html.Attribute msg)
-checkedAttrs toMsg fieldKey ctrl value model =
+checkedAttrs : (Msg field out -> msg) -> Form field err out -> field -> String -> Model field err out -> List (Html.Attribute msg)
+checkedAttrs toMsg form field value model =
     [ HE.stopPropagationOn "input"
         (JD.map
             (\event -> ( toMsg (OnInput event), True ))
-            (checkedEventDecoder fieldKey)
+            (checkedEventDecoder field)
         )
-    , HE.onBlur (toMsg (OnBlur fieldKey))
-    , HA.name ctrl
+    , HE.onBlur (toMsg (OnBlur field))
+    , HA.name (fieldName form field)
     , HA.value value
-    , HA.checked (controlValue ctrl model == Just value)
+    , HA.checked (fieldValue form field model == Just value)
     ]
 
 
-optionAttrs : Control -> String -> Model field err out -> List (Html.Attribute msg)
-optionAttrs ctrl value model =
+optionAttrs : Form field err out -> field -> String -> Model field err out -> List (Html.Attribute msg)
+optionAttrs form field value model =
     [ HA.value value
-    , HA.selected (controlValue ctrl model == Just value)
+    , HA.selected (fieldValue form field model == Just value)
     ]
 
 
-selectAttrs : (Msg field out -> msg) -> field -> Control -> List (Html.Attribute msg)
-selectAttrs toMsg fieldKey ctrl =
+selectAttrs : (Msg field out -> msg) -> Form field err out -> field -> List (Html.Attribute msg)
+selectAttrs toMsg form field =
     [ HE.on "change"
         (JD.map (OnInput >> toMsg)
-            (stringEventDecoder fieldKey)
+            (stringEventDecoder field)
         )
-    , HE.onBlur (toMsg (OnBlur fieldKey))
-    , HA.name ctrl
+    , HE.onBlur (toMsg (OnBlur field))
+    , HA.name (fieldName form field)
     ]
 
 
@@ -481,56 +455,57 @@ selectAttrs toMsg fieldKey ctrl =
 -}
 textInput :
     { toMsg : Msg field out -> msg
+    , form : Form field err out
     , field : field
-    , control : Control
     }
     -> Model field err out
     -> Html msg
-textInput { toMsg, field, control } model =
-    Html.input (HA.type_ "text" :: attrs toMsg field control model) []
+textInput { toMsg, form, field } model =
+    Html.input (HA.type_ "text" :: attrs toMsg form field model) []
 
 
 {-| Helper function to build a checkbox `Html.input [Html.type_ "checkbox", ...] []`
 -}
 checkbox :
     { toMsg : Msg field out -> msg
+    , form : Form field err out
     , field : field
-    , control : Control
     , value : String
     }
     -> Model field err out
     -> Html msg
-checkbox { toMsg, field, control, value } model =
-    Html.input (HA.type_ "checkbox" :: checkedAttrs toMsg field control value model) []
+checkbox { toMsg, form, field, value } model =
+    Html.input (HA.type_ "checkbox" :: checkedAttrs toMsg form field value model) []
 
 
 {-| Helper function to build a radio `Html.input [Html.type_ "radio", ...] []`
 -}
 radio :
     { toMsg : Msg field out -> msg
+    , form : Form field err out
     , field : field
-    , control : Control
     , value : String
     }
     -> Model field err out
     -> Html msg
-radio { toMsg, field, control, value } model =
-    Html.input (HA.type_ "radio" :: checkedAttrs toMsg field control value model) []
+radio { toMsg, form, field, value } model =
+    Html.input (HA.type_ "radio" :: checkedAttrs toMsg form field value model) []
 
 
 option :
-    { control : Control
+    { form : Form field err out
+    , field : field
     , value : String
     , label : String
     }
     -> Model field err out
     -> Html msg
-option { control, value, label } model =
+option { form, field, value, label } model =
     Html.option
-        (optionAttrs control value model)
+        (optionAttrs form field value model)
         [ Html.text label ]
 
 
-select : (Msg field out -> msg) -> field -> Control -> List (Html msg) -> Html msg
-select toMsg field control options =
-    Html.select (selectAttrs toMsg field control) options
+select : (Msg field out -> msg) -> Form field err out -> field -> List (Html msg) -> Html msg
+select toMsg form field options =
+    Html.select (selectAttrs toMsg form field) options

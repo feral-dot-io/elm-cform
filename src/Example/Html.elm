@@ -35,12 +35,12 @@ init _ =
     in
     ( { form =
             Form.init Example.emptyExample
-                |> Form.setString exampleForm MyText "myText" "hello world"
-                |> Form.setChecked exampleForm MyCheckbox "myCheckbox" "y" True
-                |> Form.setChecked exampleForm MyRadio "myRadio" zebra True
-                |> Form.setString exampleForm MySelect "mySelect" zebra
-                |> Form.setChecked exampleForm (MyCheckboxes Cat) ("myCheckboxes-" ++ cat) cat True
-                |> Form.setChecked exampleForm (MyCheckboxes Zebra) ("myCheckboxes-" ++ zebra) zebra True
+                |> Form.setString exampleForm MyText "hello world"
+                |> Form.setChecked exampleForm MyCheckbox "y" True
+                |> Form.setChecked exampleForm MyRadio zebra True
+                |> Form.setString exampleForm MySelect zebra
+                |> Form.setChecked exampleForm (MyCheckboxes Cat) cat True
+                |> Form.setChecked exampleForm (MyCheckboxes Zebra) zebra True
       , submitted = []
       }
     , Cmd.none
@@ -96,23 +96,23 @@ viewExampleForm model =
         myTextField =
             Form.textInput
                 { toMsg = FormMsg
+                , form = exampleForm
                 , field = MyText
-                , control = "myText"
                 }
 
         myCheckboxField =
             Form.checkbox
                 { toMsg = FormMsg
+                , form = exampleForm
                 , field = MyCheckbox
-                , control = "myCheckbox"
                 , value = "y"
                 }
 
         myRadioField animal =
             Form.radio
                 { toMsg = FormMsg
+                , form = exampleForm
                 , field = MyRadio
-                , control = "myRadio"
                 , value = animalToString animal
                 }
 
@@ -123,8 +123,8 @@ viewExampleForm model =
             in
             Form.checkbox
                 { toMsg = FormMsg
+                , form = exampleForm
                 , field = MyCheckboxes animal
-                , control = "myCheckboxes-" ++ id
                 , value = id
                 }
     in
@@ -135,7 +135,7 @@ viewExampleForm model =
                 [ Html.text "My text field:"
                 , myTextField model
                 ]
-                :: errToText (Form.fieldState MyText model)
+                :: errToText (Form.fieldState exampleForm MyText model)
             )
 
         -- Checkbox
@@ -163,13 +163,14 @@ viewExampleForm model =
             |> List.map
                 (\id ->
                     Form.option
-                        { control = "mySelect"
+                        { form = exampleForm
+                        , field = MySelect
                         , value = id
                         , label = id
                         }
                         model
                 )
-            |> Form.select FormMsg MySelect "mySelect"
+            |> Form.select FormMsg exampleForm MySelect
 
         -- Checkboxes
         --, Html.p [] (errToText (Form.fieldError "myChec" myCheckboxesErr))
@@ -203,18 +204,24 @@ exampleForm key =
     case key of
         MyText ->
             Form.stringField (\v d -> { d | myText = v })
+                "myText"
 
         --|> Form.assert (Form.minLength "Text field cannot be empty" 1)
         MyCheckbox ->
             Form.boolField (\v d -> { d | myCheckbox = v })
+                "myCheckbox"
 
         MyRadio ->
             Form.stringField (\v d -> { d | myRadio = stringToAnimal v })
+                "myRadio"
 
         MySelect ->
             Form.stringField (\v d -> { d | mySelect = stringToAnimal v })
+                "mySelect"
 
         MyCheckboxes animal ->
-            Form.optionsField (\v d -> { d | myCheckboxes = v })
+            Form.optionsField
+                (\v d -> { d | myCheckboxes = v })
                 .myCheckboxes
+                ("myCheckboxes" ++ animalToString animal)
                 animal
