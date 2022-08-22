@@ -57,19 +57,12 @@ type alias Key =
 type Field out
     = Field
         { field : Key -> Base.Field Error out
-        , view : FormConfig out -> Key -> List (Html (Msg out))
+        , view : Key -> Model out -> List (Html (Msg out))
         }
 
 
 type alias Error =
     String
-
-
-type alias FormConfig out =
-    { topId : String
-    , form : BaseForm out
-    , model : Model out
-    }
 
 
 
@@ -113,17 +106,11 @@ onFormSubmit =
 
 
 view : (Msg out -> msg) -> String -> Form out -> Model out -> Html msg
-view toMsg formId form model =
+view toMsg formId form db =
     let
-        config =
-            { topId = formId
-            , form = formToBase form
-            , model = model
-            }
-
         children =
             formFields form
-                |> viewFields config Array.empty
+                |> viewFields Array.empty db
     in
     Html.form
         (HA.id formId :: Base.formAttrs identity)
@@ -131,12 +118,12 @@ view toMsg formId form model =
         |> Html.map toMsg
 
 
-viewFields : FormConfig out -> Key -> List (Field out) -> List (Html (Msg out))
-viewFields config prefix fields =
+viewFields : Key -> Model out -> List (Field out) -> List (Html (Msg out))
+viewFields prefix db fields =
     let
         viewField i (Field field) =
             Html.div [ HA.class "field" ]
-                (field.view config (Array.push i prefix))
+                (field.view (Array.push i prefix) db)
     in
     List.indexedMap viewField fields
 
@@ -281,11 +268,11 @@ inputField set attrs =
     Field
         { field = onLeaf (Base.stringField set)
         , view =
-            \{ form, model } key ->
+            \key db ->
                 withLeftLabel c.common.label
                     [ Html.input
                         (HA.type_ c.type_
-                            :: Base.attrs identity key (keyToString key) c.common.default model
+                            :: Base.attrs identity key (keyToString key) c.common.default db
                         )
                         []
                     ]
@@ -301,8 +288,8 @@ type alias CheckedConfig out =
     }
 
 
-emptyCheckboxConfig : CheckedConfig out
-emptyCheckboxConfig =
+emptyCheckedConfig : CheckedConfig out
+emptyCheckedConfig =
     CheckedConfig (emptyCommon False)
 
 
@@ -310,14 +297,22 @@ checkboxField : (Bool -> out -> out) -> List (Attribute (CheckedConfig out)) -> 
 checkboxField set attrs =
     let
         c =
-            attrToConfig emptyCheckboxConfig attrs
+            attrToConfig emptyCheckedConfig attrs
     in
     Field
         { field = onLeaf (Base.boolField set)
         , view =
-            \{ form, model } key ->
+            \key db ->
                 withRightLabel c.common.label
-                    [ Base.checkbox identity key (keyToString key) "y" c.common.default model ]
+                    [ Base.checkbox
+                        { toMsg = identity
+                        , field = key
+                        , control = keyToString key
+                        , value = "y"
+                        , default = c.common.default
+                        }
+                        db
+                    ]
         }
 
 
@@ -325,11 +320,21 @@ checkboxField set attrs =
 -- Radios field
 
 
-radiosField : (Maybe option -> out -> out) -> (option -> String) -> List option -> List (Attribute (CheckedConfig out)) -> Field out
+type alias OptionConfig option out =
+    { common : Common option out
+    }
+
+
+emptyOptionConfig : option -> OptionConfig option out
+emptyOptionConfig defOpt =
+    OptionConfig (emptyCommon defOpt)
+
+
+radiosField : (Maybe option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig (Maybe option) out)) -> Field out
 radiosField set toString options attrs =
     let
         c =
-            attrToConfig emptyCheckboxConfig attrs
+            attrToConfig (emptyOptionConfig Nothing) attrs
 
         radio opt =
             let
@@ -339,9 +344,17 @@ radiosField set toString options attrs =
             Field
                 { field = onLeaf (Base.checkedField (\_ -> set (Just opt)) (\_ -> set Nothing))
                 , view =
-                    \{ form, model } key ->
+                    \key db ->
                         withRightLabel [ Html.text asStr ]
-                            [ Base.radio identity key (keyToString (Array.slice 0 -1 key)) asStr c.common.default model ]
+                            [ Base.radio
+                                { toMsg = identity
+                                , field = key
+                                , control = keyToString (Array.slice 0 -1 key)
+                                , value = asStr
+                                , default = c.common.default == Just opt
+                                }
+                                db
+                            ]
                 }
     in
     options
@@ -353,11 +366,11 @@ radiosField set toString options attrs =
 -- Checkboxes
 
 
-checkboxesField : (option -> out -> out) -> (option -> out -> out) -> (option -> String) -> List option -> List (Attribute (CheckedConfig out)) -> Field out
+checkboxesField : (option -> out -> out) -> (option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig (List option) out)) -> Field out
 checkboxesField insert remove toString options attrs =
     let
         c =
-            attrToConfig emptyCheckboxConfig attrs
+            attrToConfig (emptyOptionConfig []) attrs
 
         checkbox opt =
             let
@@ -367,9 +380,17 @@ checkboxesField insert remove toString options attrs =
             Field
                 { field = onLeaf (Base.checkedField (\_ -> insert opt) (\_ -> remove opt))
                 , view =
-                    \{ form, model } key ->
+                    \key db ->
                         withRightLabel [ Html.text asStr ]
-                            [ Base.checkbox identity key (keyToString key) asStr c.common.default model ]
+                            [ Base.checkbox
+                                { toMsg = identity
+                                , field = key
+                                , control = keyToString key
+                                , value = asStr
+                                , default = List.member opt c.common.default
+                                }
+                                db
+                            ]
                 }
     in
     options
@@ -381,26 +402,16 @@ checkboxesField insert remove toString options attrs =
 -- Select field
 
 
-type alias SelectConfig option out =
-    { common : Common (Maybe option) out
-    }
-
-
-emptySelectConfig : SelectConfig option out
-emptySelectConfig =
-    SelectConfig (emptyCommon Nothing)
-
-
-selectField : (Maybe option -> out -> out) -> (option -> String) -> (String -> Maybe option) -> List option -> List (Attribute (SelectConfig option out)) -> Field out
+selectField : (Maybe option -> out -> out) -> (option -> String) -> (String -> Maybe option) -> List option -> List (Attribute (OptionConfig (Maybe option) out)) -> Field out
 selectField set toString fromString options attrs =
     let
         c =
-            attrToConfig emptySelectConfig attrs
+            attrToConfig (emptyOptionConfig Nothing) attrs
     in
     Field
         { field = onLeaf (Base.stringField (fromString >> set))
         , view =
-            \{ model } key ->
+            \key db ->
                 let
                     ctrl =
                         keyToString key
@@ -413,7 +424,16 @@ selectField set toString fromString options attrs =
                 withLeftLabel c.common.label
                     [ options
                         |> List.map toString
-                        |> List.map (\value -> Base.option ctrl value def value model)
+                        |> List.map
+                            (\value ->
+                                Base.option
+                                    { control = ctrl
+                                    , value = value
+                                    , default = def
+                                    , label = value
+                                    }
+                                    db
+                            )
                         |> Base.select identity key ctrl
                     ]
         }

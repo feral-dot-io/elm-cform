@@ -92,13 +92,52 @@ viewExampleForm model =
 
                 Nothing ->
                     []
+
+        myTextField =
+            Form.textInput
+                { toMsg = FormMsg
+                , field = MyText
+                , control = "myText"
+                , default = "hello world"
+                }
+
+        myCheckboxField =
+            Form.checkbox
+                { toMsg = FormMsg
+                , field = MyCheckbox
+                , control = "myCheckbox"
+                , value = "y"
+                , default = True
+                }
+
+        myRadioField animal =
+            Form.radio
+                { toMsg = FormMsg
+                , field = MyRadio
+                , control = "myRadio"
+                , value = animalToString animal
+                , default = animal == Zebra
+                }
+
+        myCheckboxesField animal =
+            let
+                id =
+                    animalToString animal
+            in
+            Form.checkbox
+                { toMsg = FormMsg
+                , field = MyCheckboxes
+                , control = "myCheckboxes-" ++ id
+                , value = id
+                , default = List.member animal [ Cat, Zebra ]
+                }
     in
     Html.form (Form.formAttrs FormMsg)
         -- Text
         [ Html.p []
             (Html.label []
                 [ Html.text "My text field:"
-                , Form.textInput FormMsg MyText "myText" "hello world" model
+                , myTextField model
                 ]
                 :: errToText (Form.fieldState MyText model)
             )
@@ -106,7 +145,7 @@ viewExampleForm model =
         -- Checkbox
         , Html.p []
             [ Html.label []
-                [ Form.checkbox FormMsg MyCheckbox "myCheckbox" "y" True model
+                [ myCheckboxField model
                 , Html.text "my checkbox"
                 ]
             ]
@@ -115,13 +154,9 @@ viewExampleForm model =
         , animals
             |> List.map
                 (\animal ->
-                    let
-                        id =
-                            animalToString animal
-                    in
                     Html.label []
-                        [ Form.radio FormMsg MyRadio "myRadio" id (animal == Zebra) model
-                        , Html.text id
+                        [ myRadioField animal model
+                        , Html.text (animalToString animal)
                         ]
                 )
             |> Html.p []
@@ -129,7 +164,16 @@ viewExampleForm model =
         -- Select
         , animals
             |> List.map animalToString
-            |> List.map (\id -> Form.option "mySelect" id (animalToString Zebra) id model)
+            |> List.map
+                (\id ->
+                    Form.option
+                        { control = "mySelect"
+                        , value = id
+                        , default = animalToString Zebra
+                        , label = id
+                        }
+                        model
+                )
             |> Form.select FormMsg MySelect "mySelect"
 
         -- Checkboxes
@@ -137,16 +181,9 @@ viewExampleForm model =
         , animals
             |> List.map
                 (\animal ->
-                    let
-                        id =
-                            animalToString animal
-
-                        default =
-                            List.member animal [ Cat, Zebra ]
-                    in
                     Html.label []
-                        [ Form.checkbox FormMsg MyCheckboxes ("myCheckboxes-" ++ id) id default model
-                        , Html.text id
+                        [ myCheckboxesField animal model
+                        , Html.text (animalToString animal)
                         ]
                 )
             |> Html.p []

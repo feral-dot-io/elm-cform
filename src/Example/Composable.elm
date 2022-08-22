@@ -67,29 +67,37 @@ exampleForm : Form Example
 exampleForm =
     let
         animals =
-            [ Cat, Dog, Zebra ]
+            [ Dog, Cat, Zebra ]
 
         myTextField =
             Form.inputField
                 (\v d -> { d | myText = v })
-                [ Form.textLabel "myText" ]
+                [ Form.textLabel "myText"
+                , Form.default "hello world"
+                ]
 
         myCheckboxField =
             Form.checkboxField (\v d -> { d | myCheckbox = v })
-                [ Form.textLabel "myCheckbox" ]
+                [ Form.textLabel "myCheckbox"
+                , Form.default True
+                ]
 
         myRadioField =
             Form.radiosField (\v d -> { d | myRadio = v })
                 animalToString
                 animals
-                [ Form.textLabel "myRadio" ]
+                [ Form.textLabel "myRadio"
+                , Form.default (Just Zebra)
+                ]
 
         mySelectField =
             Form.selectField (\v d -> { d | mySelect = v })
                 animalToString
                 stringToAnimal
                 animals
-                [ Form.textLabel "mySelect" ]
+                [ Form.textLabel "mySelect"
+                , Form.default (Just Zebra)
+                ]
 
         myCheckboxesField =
             Form.checkboxesField
@@ -97,7 +105,9 @@ exampleForm =
                 (\v d -> { d | myCheckboxes = List.filter ((/=) v) d.myCheckboxes })
                 animalToString
                 animals
-                [ Form.textLabel "myCheckboxes" ]
+                [ Form.textLabel "myCheckboxes"
+                , Form.default [ Cat, Zebra ]
+                ]
     in
     Form.empty
         |> Form.append

@@ -469,32 +469,62 @@ selectAttrs toMsg fieldKey ctrl =
 
 {-| Helper function to build a text input `Html.input [Html.type_ "text", ...] []`
 -}
-textInput : (Msg field out -> msg) -> field -> Control -> String -> Model field err out -> Html msg
-textInput toMsg field ctrl default model =
-    Html.input (HA.type_ "text" :: attrs toMsg field ctrl default model) []
+textInput :
+    { toMsg : Msg field out -> msg
+    , field : field
+    , control : Control
+    , default : String
+    }
+    -> Model field err out
+    -> Html msg
+textInput { toMsg, field, control, default } model =
+    Html.input (HA.type_ "text" :: attrs toMsg field control default model) []
 
 
 {-| Helper function to build a checkbox `Html.input [Html.type_ "checkbox", ...] []`
 -}
-checkbox : (Msg field out -> msg) -> field -> Control -> String -> Bool -> Model field err out -> Html msg
-checkbox toMsg field ctrl value default model =
-    Html.input (HA.type_ "checkbox" :: checkedAttrs toMsg field ctrl value default model) []
+checkbox :
+    { toMsg : Msg field out -> msg
+    , field : field
+    , control : Control
+    , value : String
+    , default : Bool
+    }
+    -> Model field err out
+    -> Html msg
+checkbox { toMsg, field, control, value, default } model =
+    Html.input (HA.type_ "checkbox" :: checkedAttrs toMsg field control value default model) []
 
 
 {-| Helper function to build a radio `Html.input [Html.type_ "radio", ...] []`
 -}
-radio : (Msg field out -> msg) -> field -> Control -> String -> Bool -> Model field err out -> Html msg
-radio toMsg field ctrl value default model =
-    Html.input (HA.type_ "radio" :: checkedAttrs toMsg field ctrl value default model) []
+radio :
+    { toMsg : Msg field out -> msg
+    , field : field
+    , control : Control
+    , value : String
+    , default : Bool
+    }
+    -> Model field err out
+    -> Html msg
+radio { toMsg, field, control, value, default } model =
+    Html.input (HA.type_ "radio" :: checkedAttrs toMsg field control value default model) []
 
 
-option : Control -> String -> String -> String -> Model field err out -> Html msg
-option ctrl value default label model =
+option :
+    { control : Control
+    , value : String
+    , default : String
+    , label : String
+    }
+    -> Model field err out
+    -> Html msg
+option { control, value, default, label } model =
     Html.option
-        (optionAttrs ctrl value default model)
+        (optionAttrs control value default model)
         [ Html.text label ]
 
 
 select : (Msg field out -> msg) -> field -> Control -> List (Html msg) -> Html msg
-select toMsg field ctrl options =
-    Html.select (selectAttrs toMsg field ctrl) options
+select toMsg field control options =
+    Html.select (selectAttrs toMsg field control) options
