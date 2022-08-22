@@ -339,7 +339,7 @@ radiosField set toString options attrs =
                     toString opt
             in
             Field
-                { field = onLeaf (Base.checkedField (\_ -> set (Just opt)) (\_ -> set Nothing))
+                { field = onLeaf (Base.checkedField (set (Just opt)) (set Nothing))
                 , view =
                     \key db ->
                         withRightLabel [ Html.text asStr ]
@@ -374,7 +374,7 @@ checkboxesField insert remove toString options attrs =
                     toString opt
             in
             Field
-                { field = onLeaf (Base.checkedField (\_ -> insert opt) (\_ -> remove opt))
+                { field = onLeaf (Base.checkedField (insert opt) (remove opt))
                 , view =
                     \key db ->
                         withRightLabel [ Html.text asStr ]

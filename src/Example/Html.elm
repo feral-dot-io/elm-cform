@@ -39,8 +39,8 @@ init _ =
                 |> Form.setChecked exampleForm MyCheckbox "myCheckbox" "y" True
                 |> Form.setChecked exampleForm MyRadio "myRadio" zebra True
                 |> Form.setString exampleForm MySelect "mySelect" zebra
-                |> Form.setChecked exampleForm MyCheckboxes ("myCheckboxes-" ++ cat) cat True
-                |> Form.setChecked exampleForm MyCheckboxes ("myCheckboxes-" ++ zebra) zebra True
+                |> Form.setChecked exampleForm (MyCheckboxes Cat) ("myCheckboxes-" ++ cat) cat True
+                |> Form.setChecked exampleForm (MyCheckboxes Zebra) ("myCheckboxes-" ++ zebra) zebra True
       , submitted = []
       }
     , Cmd.none
@@ -123,7 +123,7 @@ viewExampleForm model =
             in
             Form.checkbox
                 { toMsg = FormMsg
-                , field = MyCheckboxes
+                , field = MyCheckboxes animal
                 , control = "myCheckboxes-" ++ id
                 , value = id
                 }
@@ -195,7 +195,7 @@ type ExampleControl
     | MyCheckbox
     | MyRadio
     | MySelect
-    | MyCheckboxes
+    | MyCheckboxes Animal
 
 
 exampleForm : ExampleControl -> Form.Field String Example
@@ -214,24 +214,7 @@ exampleForm key =
         MySelect ->
             Form.stringField (\v d -> { d | mySelect = stringToAnimal v })
 
-        MyCheckboxes ->
-            Form.checkedField
-                (\v d ->
-                    { d
-                        | myCheckboxes =
-                            case stringToAnimal v of
-                                Just animal ->
-                                    animal :: d.myCheckboxes
-
-                                Nothing ->
-                                    d.myCheckboxes
-                    }
-                )
-                (\v d ->
-                    { d
-                        | myCheckboxes =
-                            List.filter
-                                (\check -> Just check /= stringToAnimal v)
-                                d.myCheckboxes
-                    }
-                )
+        MyCheckboxes animal ->
+            Form.optionsField (\v d -> { d | myCheckboxes = v })
+                .myCheckboxes
+                animal
