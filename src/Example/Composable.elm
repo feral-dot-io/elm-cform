@@ -84,6 +84,13 @@ exampleForm =
                 animals
                 [ Form.textLabel "myRadio" ]
 
+        mySelectField =
+            Form.selectField (\v d -> { d | mySelect = v })
+                animalToString
+                stringToAnimal
+                animals
+                [ Form.textLabel "mySelect" ]
+
         myCheckboxesField =
             Form.checkboxesField
                 (\v d -> { d | myCheckboxes = v :: d.myCheckboxes })
@@ -100,6 +107,6 @@ exampleForm =
                 |> Form.column
             )
         |> Form.append myRadioField
-        -- TODO <select>
+        |> Form.append mySelectField
         |> Form.append myCheckboxesField
         |> Form.append (Form.submit "Submit")

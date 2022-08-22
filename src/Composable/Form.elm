@@ -26,6 +26,7 @@ module Composable.Form exposing
     , placeholder
     , radiosField
     , row
+    , selectField
     , submit
     , textLabel
     , type_
@@ -374,6 +375,48 @@ checkboxesField insert remove toString options attrs =
     options
         |> List.foldl (checkbox >> append) empty
         |> groupField (withLeftLabel c.common.label)
+
+
+
+-- Select field
+
+
+type alias SelectConfig option out =
+    { common : Common (Maybe option) out
+    }
+
+
+emptySelectConfig : SelectConfig option out
+emptySelectConfig =
+    SelectConfig (emptyCommon Nothing)
+
+
+selectField : (Maybe option -> out -> out) -> (option -> String) -> (String -> Maybe option) -> List option -> List (Attribute (SelectConfig option out)) -> Field out
+selectField set toString fromString options attrs =
+    let
+        c =
+            attrToConfig emptySelectConfig attrs
+    in
+    Field
+        { field = onLeaf (Base.stringField (fromString >> set))
+        , view =
+            \{ model } key ->
+                let
+                    ctrl =
+                        keyToString key
+
+                    def =
+                        c.common.default
+                            |> Maybe.map toString
+                            |> Maybe.withDefault ""
+                in
+                withLeftLabel c.common.label
+                    [ options
+                        |> List.map toString
+                        |> List.map (\value -> Base.option ctrl value def value model)
+                        |> Base.select identity key ctrl
+                    ]
+        }
 
 
 
