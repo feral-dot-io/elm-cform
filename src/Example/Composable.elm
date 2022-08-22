@@ -73,13 +73,15 @@ exampleForm =
             Form.inputField
                 (\v d -> { d | myText = v })
                 [ Form.textLabel "myText"
-                , Form.default "hello world"
+
+                --, Form.default "hello world"
                 ]
 
         myCheckboxField =
             Form.checkboxField (\v d -> { d | myCheckbox = v })
                 [ Form.textLabel "myCheckbox"
-                , Form.default True
+
+                --, Form.default True
                 ]
 
         myRadioField =
@@ -87,7 +89,8 @@ exampleForm =
                 animalToString
                 animals
                 [ Form.textLabel "myRadio"
-                , Form.default (Just Zebra)
+
+                --, Form.default (Just Zebra)
                 ]
 
         mySelectField =
@@ -96,7 +99,8 @@ exampleForm =
                 stringToAnimal
                 animals
                 [ Form.textLabel "mySelect"
-                , Form.default (Just Zebra)
+
+                --, Form.default (Just Zebra)
                 ]
 
         myCheckboxesField =
@@ -106,7 +110,8 @@ exampleForm =
                 animalToString
                 animals
                 [ Form.textLabel "myCheckboxes"
-                , Form.default [ Cat, Zebra ]
+
+                --, Form.default [ Cat, Zebra ]
                 ]
     in
     Form.empty

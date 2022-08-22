@@ -341,10 +341,10 @@ type alias ControlState =
     }
 
 
-controlValue : Control -> String -> Model field err out -> DbValue
-controlValue ctrl default (Model db) =
+controlValue : Control -> Model field err out -> DbValue
+controlValue ctrl (Model db) =
     Dict.get ctrl db.state
-        |> Maybe.withDefault ( default, default /= "" )
+        |> Maybe.withDefault ( "", False )
 
 
 controlIsChecked : String -> DbValue -> Bool
@@ -356,11 +356,11 @@ controlIsChecked ctrlValue ( value, checked ) =
         False
 
 
-controlState : field -> Control -> String -> Model field err out -> ControlState
-controlState fieldKey ctrl default (Model db) =
+controlState : field -> Control -> Model field err out -> ControlState
+controlState fieldKey ctrl (Model db) =
     let
         ( value, checked ) =
-            controlValue ctrl default (Model db)
+            controlValue ctrl (Model db)
     in
     { control = ctrl
     , value = value
@@ -410,8 +410,8 @@ checkedEventDecoder field =
     eventDecoder field HE.targetChecked
 
 
-attrs : (Msg field out -> msg) -> field -> Control -> String -> Model field err out -> List (Html.Attribute msg)
-attrs toMsg field ctrl default model =
+attrs : (Msg field out -> msg) -> field -> Control -> Model field err out -> List (Html.Attribute msg)
+attrs toMsg field ctrl model =
     [ HE.stopPropagationOn "input"
         (JD.map
             (\event -> ( toMsg (OnInput event), True ))
@@ -419,20 +419,12 @@ attrs toMsg field ctrl default model =
         )
     , HE.onBlur (toMsg (OnBlur field))
     , HA.name ctrl
-    , HA.value (controlValue ctrl default model |> Tuple.first)
+    , HA.value (controlValue ctrl model |> Tuple.first)
     ]
 
 
-checkedAttrs : (Msg field out -> msg) -> field -> Control -> String -> Bool -> Model field err out -> List (Html.Attribute msg)
-checkedAttrs toMsg fieldKey ctrl value default model =
-    let
-        defaultVal =
-            if default then
-                value
-
-            else
-                ""
-    in
+checkedAttrs : (Msg field out -> msg) -> field -> Control -> String -> Model field err out -> List (Html.Attribute msg)
+checkedAttrs toMsg fieldKey ctrl value model =
     [ HE.stopPropagationOn "input"
         (JD.map
             (\event -> ( toMsg (OnInput event), True ))
@@ -441,14 +433,14 @@ checkedAttrs toMsg fieldKey ctrl value default model =
     , HE.onBlur (toMsg (OnBlur fieldKey))
     , HA.name ctrl
     , HA.value value
-    , HA.checked (controlValue ctrl defaultVal model |> controlIsChecked value)
+    , HA.checked (controlValue ctrl model |> controlIsChecked value)
     ]
 
 
-optionAttrs : Control -> String -> String -> Model field err out -> List (Html.Attribute msg)
-optionAttrs ctrl value default model =
+optionAttrs : Control -> String -> Model field err out -> List (Html.Attribute msg)
+optionAttrs ctrl value model =
     [ HA.value value
-    , HA.selected (controlValue ctrl default model |> controlIsChecked value)
+    , HA.selected (controlValue ctrl model |> controlIsChecked value)
     ]
 
 
@@ -473,12 +465,11 @@ textInput :
     { toMsg : Msg field out -> msg
     , field : field
     , control : Control
-    , default : String
     }
     -> Model field err out
     -> Html msg
-textInput { toMsg, field, control, default } model =
-    Html.input (HA.type_ "text" :: attrs toMsg field control default model) []
+textInput { toMsg, field, control } model =
+    Html.input (HA.type_ "text" :: attrs toMsg field control model) []
 
 
 {-| Helper function to build a checkbox `Html.input [Html.type_ "checkbox", ...] []`
@@ -488,12 +479,11 @@ checkbox :
     , field : field
     , control : Control
     , value : String
-    , default : Bool
     }
     -> Model field err out
     -> Html msg
-checkbox { toMsg, field, control, value, default } model =
-    Html.input (HA.type_ "checkbox" :: checkedAttrs toMsg field control value default model) []
+checkbox { toMsg, field, control, value } model =
+    Html.input (HA.type_ "checkbox" :: checkedAttrs toMsg field control value model) []
 
 
 {-| Helper function to build a radio `Html.input [Html.type_ "radio", ...] []`
@@ -503,25 +493,23 @@ radio :
     , field : field
     , control : Control
     , value : String
-    , default : Bool
     }
     -> Model field err out
     -> Html msg
-radio { toMsg, field, control, value, default } model =
-    Html.input (HA.type_ "radio" :: checkedAttrs toMsg field control value default model) []
+radio { toMsg, field, control, value } model =
+    Html.input (HA.type_ "radio" :: checkedAttrs toMsg field control value model) []
 
 
 option :
     { control : Control
     , value : String
-    , default : String
     , label : String
     }
     -> Model field err out
     -> Html msg
-option { control, value, default, label } model =
+option { control, value, label } model =
     Html.option
-        (optionAttrs control value default model)
+        (optionAttrs control value model)
         [ Html.text label ]
 
 

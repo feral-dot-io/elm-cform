@@ -13,7 +13,6 @@ module Composable.Form exposing
     , checkboxesField
     , class
     , column
-    , default
     , empty
     , fieldset
     , htmlAttribute
@@ -227,18 +226,17 @@ withRightLabel right inner =
 -- Common field
 
 
-type alias Common value out =
+type alias Common out =
     { attrs : List (Html.Attribute (Msg out))
     , class : String
-    , default : value
     , id : String
     , label : List (Html (Msg out))
     }
 
 
-emptyCommon : base -> Common base out
-emptyCommon def =
-    Common [] "" def "" []
+emptyCommon : Common out
+emptyCommon =
+    Common [] "" "" []
 
 
 
@@ -246,7 +244,7 @@ emptyCommon def =
 
 
 type alias TextConfig out =
-    { common : Common String out
+    { common : Common out
     , autofocus : Bool
     , inputmode : String
     , placeholder : String
@@ -256,7 +254,7 @@ type alias TextConfig out =
 
 emptyTextConfig : TextConfig out
 emptyTextConfig =
-    TextConfig (emptyCommon "") False "" "" "text"
+    TextConfig emptyCommon False "" "" "text"
 
 
 inputField : (String -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
@@ -272,7 +270,7 @@ inputField set attrs =
                 withLeftLabel c.common.label
                     [ Html.input
                         (HA.type_ c.type_
-                            :: Base.attrs identity key (keyToString key) c.common.default db
+                            :: Base.attrs identity key (keyToString key) db
                         )
                         []
                     ]
@@ -284,13 +282,13 @@ inputField set attrs =
 
 
 type alias CheckedConfig out =
-    { common : Common Bool out
+    { common : Common out
     }
 
 
 emptyCheckedConfig : CheckedConfig out
 emptyCheckedConfig =
-    CheckedConfig (emptyCommon False)
+    CheckedConfig emptyCommon
 
 
 checkboxField : (Bool -> out -> out) -> List (Attribute (CheckedConfig out)) -> Field out
@@ -309,7 +307,6 @@ checkboxField set attrs =
                         , field = key
                         , control = keyToString key
                         , value = "y"
-                        , default = c.common.default
                         }
                         db
                     ]
@@ -320,21 +317,21 @@ checkboxField set attrs =
 -- Radios field
 
 
-type alias OptionConfig option out =
-    { common : Common option out
+type alias OptionConfig out =
+    { common : Common out
     }
 
 
-emptyOptionConfig : option -> OptionConfig option out
-emptyOptionConfig defOpt =
-    OptionConfig (emptyCommon defOpt)
+emptyOptionConfig : OptionConfig out
+emptyOptionConfig =
+    OptionConfig emptyCommon
 
 
-radiosField : (Maybe option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig (Maybe option) out)) -> Field out
+radiosField : (Maybe option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig out)) -> Field out
 radiosField set toString options attrs =
     let
         c =
-            attrToConfig (emptyOptionConfig Nothing) attrs
+            attrToConfig emptyOptionConfig attrs
 
         radio opt =
             let
@@ -351,7 +348,6 @@ radiosField set toString options attrs =
                                 , field = key
                                 , control = keyToString (Array.slice 0 -1 key)
                                 , value = asStr
-                                , default = c.common.default == Just opt
                                 }
                                 db
                             ]
@@ -366,11 +362,11 @@ radiosField set toString options attrs =
 -- Checkboxes
 
 
-checkboxesField : (option -> out -> out) -> (option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig (List option) out)) -> Field out
+checkboxesField : (option -> out -> out) -> (option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig out)) -> Field out
 checkboxesField insert remove toString options attrs =
     let
         c =
-            attrToConfig (emptyOptionConfig []) attrs
+            attrToConfig emptyOptionConfig attrs
 
         checkbox opt =
             let
@@ -387,7 +383,6 @@ checkboxesField insert remove toString options attrs =
                                 , field = key
                                 , control = keyToString key
                                 , value = asStr
-                                , default = List.member opt c.common.default
                                 }
                                 db
                             ]
@@ -402,11 +397,11 @@ checkboxesField insert remove toString options attrs =
 -- Select field
 
 
-selectField : (Maybe option -> out -> out) -> (option -> String) -> (String -> Maybe option) -> List option -> List (Attribute (OptionConfig (Maybe option) out)) -> Field out
+selectField : (Maybe option -> out -> out) -> (option -> String) -> (String -> Maybe option) -> List option -> List (Attribute (OptionConfig out)) -> Field out
 selectField set toString fromString options attrs =
     let
         c =
-            attrToConfig (emptyOptionConfig Nothing) attrs
+            attrToConfig emptyOptionConfig attrs
     in
     Field
         { field = onLeaf (Base.stringField (fromString >> set))
@@ -415,11 +410,6 @@ selectField set toString fromString options attrs =
                 let
                     ctrl =
                         keyToString key
-
-                    def =
-                        c.common.default
-                            |> Maybe.map toString
-                            |> Maybe.withDefault ""
                 in
                 withLeftLabel c.common.label
                     [ options
@@ -429,7 +419,6 @@ selectField set toString fromString options attrs =
                                 Base.option
                                     { control = ctrl
                                     , value = value
-                                    , default = def
                                     , label = value
                                     }
                                     db
@@ -503,43 +492,38 @@ fieldset title (Form fields) =
 -- Common field attributes
 
 
-type alias WithCommon a value out =
-    { a | common : Common value out }
+type alias WithCommon a out =
+    { a | common : Common out }
 
 
-withCommon : (Common v out -> Common v out) -> WithCommon a v out -> WithCommon a v out
+withCommon : (Common out -> Common out) -> WithCommon a out -> WithCommon a out
 withCommon set o =
     { o | common = set o.common }
 
 
-label : List (Html (Msg out)) -> Attribute (WithCommon c v out)
+label : List (Html (Msg out)) -> Attribute (WithCommon c out)
 label v =
     withCommon (\c -> { c | label = v })
 
 
-textLabel : String -> Attribute (WithCommon c v out)
+textLabel : String -> Attribute (WithCommon c out)
 textLabel str =
     label [ Html.text str ]
 
 
-htmlAttribute : Html.Attribute (Msg out) -> Attribute (WithCommon c v out)
+htmlAttribute : Html.Attribute (Msg out) -> Attribute (WithCommon c out)
 htmlAttribute attr =
     withCommon (\c -> { c | attrs = c.attrs ++ [ attr ] })
 
 
-id : String -> Attribute (WithCommon c v out)
+id : String -> Attribute (WithCommon c out)
 id =
     HA.id >> htmlAttribute
 
 
-class : String -> Attribute (WithCommon c v out)
+class : String -> Attribute (WithCommon c out)
 class =
     HA.class >> htmlAttribute
-
-
-default : value -> Attribute (WithCommon c value out)
-default def =
-    withCommon (\c -> { c | default = def })
 
 
 

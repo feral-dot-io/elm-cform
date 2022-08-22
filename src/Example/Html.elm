@@ -98,7 +98,6 @@ viewExampleForm model =
                 { toMsg = FormMsg
                 , field = MyText
                 , control = "myText"
-                , default = "hello world"
                 }
 
         myCheckboxField =
@@ -107,7 +106,6 @@ viewExampleForm model =
                 , field = MyCheckbox
                 , control = "myCheckbox"
                 , value = "y"
-                , default = True
                 }
 
         myRadioField animal =
@@ -116,7 +114,6 @@ viewExampleForm model =
                 , field = MyRadio
                 , control = "myRadio"
                 , value = animalToString animal
-                , default = animal == Zebra
                 }
 
         myCheckboxesField animal =
@@ -129,7 +126,6 @@ viewExampleForm model =
                 , field = MyCheckboxes
                 , control = "myCheckboxes-" ++ id
                 , value = id
-                , default = List.member animal [ Cat, Zebra ]
                 }
     in
     Html.form (Form.formAttrs FormMsg)
@@ -169,7 +165,6 @@ viewExampleForm model =
                     Form.option
                         { control = "mySelect"
                         , value = id
-                        , default = animalToString Zebra
                         , label = id
                         }
                         model
