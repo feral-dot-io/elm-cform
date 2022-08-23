@@ -80,8 +80,8 @@ type alias Model out =
     Base.Model Key out
 
 
-init : Form out -> out -> Model out
-init form emptyOut =
+init : out -> Form out -> Model out
+init emptyOut form =
     let
         base =
             formToBase form
@@ -96,9 +96,9 @@ type alias Msg out =
     Base.Msg Key out
 
 
-update : Form out -> Msg out -> Model out -> ( Model out, Base.SubmitTrigger )
-update form =
-    Base.update (formToBase form)
+update : Msg out -> Model out -> Form out -> ( Model out, Base.SubmitTrigger )
+update msg model form =
+    Base.update (formToBase form) msg model
 
 
 formToBase : Form out -> BaseForm out
@@ -161,8 +161,8 @@ onFormSubmit =
 -- View
 
 
-view : (Msg out -> msg) -> String -> Form out -> Model out -> Html msg
-view toMsg formId form model =
+view : (Msg out -> msg) -> String -> Model out -> Form out -> Html msg
+view toMsg formId model form =
     let
         config =
             { id = formId

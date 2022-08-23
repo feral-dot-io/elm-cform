@@ -24,7 +24,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { form = Form.init exampleForm emptyExample
+    ( { form = Form.init emptyExample exampleForm
       , submitted = []
       }
     , Cmd.none
@@ -39,7 +39,8 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         FormMsg formMsg ->
-            Form.update exampleForm formMsg model.form
+            exampleForm
+                |> Form.update formMsg model.form
                 |> Form.autoSubmit onSubmit (\f -> { model | form = f })
 
 
@@ -54,7 +55,7 @@ view : Model -> Html Msg
 view m =
     Html.article []
         [ Html.h1 [] [ Html.text "Example form" ]
-        , Form.view FormMsg "examples" exampleForm m.form
+        , Form.view FormMsg "examples" m.form exampleForm
         , Html.div [] (viewExamples m.submitted)
         ]
 
