@@ -38,15 +38,6 @@ import Json.Decode as JD
 
 
 
-{-
-   TODO
-    - default values: init vs form builder
-        - usually comes with data, makes accessing form harder if wrapped in WebData
-        - free form in init vs typed in form builder
-    - unstructured html vs structured form builder
-        - unstructured lacks types
-        - structured limits flexibility
--}
 -- Types
 
 

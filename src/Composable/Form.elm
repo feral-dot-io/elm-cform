@@ -174,7 +174,7 @@ view toMsg formId form model =
             }
 
         children =
-            viewForm config Array.empty form
+            viewForm form config Array.empty
     in
     Html.form
         (HA.id formId :: Base.formAttrs identity)
@@ -182,12 +182,8 @@ view toMsg formId form model =
         |> Html.map toMsg
 
 
-
--- TODO: should fields come first?
-
-
-viewForm : ViewConfig out -> Key -> Form out -> List (Html (Msg out))
-viewForm config prefix (Form fields) =
+viewForm : Form out -> ViewConfig out -> Key -> List (Html (Msg out))
+viewForm (Form fields) config prefix =
     let
         viewField i (Field field) =
             Html.div [ HA.class "field" ]
@@ -204,8 +200,6 @@ stylesheet formId =
     in
     [ rule ".column { display: flex; margin: 0; }"
     , rule ".row { margin: 0 0.5rem; }"
-
-    -- TODO add more CSS
     ]
         |> String.join "\n"
         |> (Html.text >> List.singleton)
@@ -279,8 +273,7 @@ withRightLabel right inner =
 
 
 type alias Common value out =
-    { attrs : List (Html.Attribute (Msg out))
-    , class : String
+    { controlAttrs : List (Html.Attribute (Msg out))
     , default : value
     , id : String
     , label : List (Html (Msg out))
@@ -289,7 +282,7 @@ type alias Common value out =
 
 emptyCommon : value -> Common value out
 emptyCommon def =
-    Common [] "" def "" []
+    Common [] def "" []
 
 
 
@@ -325,7 +318,8 @@ inputField set attrs =
                 withLeftLabel c.common.label
                     [ Html.input
                         (HA.type_ c.type_
-                            :: Base.attrs identity base key model
+                            :: c.common.controlAttrs
+                            ++ Base.attrs identity base key model
                         )
                         []
                     ]
@@ -372,13 +366,12 @@ checkboxField set attrs =
         , view =
             \{ base, model } key ->
                 withRightLabel c.common.label
-                    [ Base.checkbox
-                        { toMsg = identity
-                        , form = base
-                        , field = key
-                        , value = value
-                        }
-                        model
+                    [ Html.input
+                        (HA.type_ "checkbox"
+                            :: c.common.controlAttrs
+                            ++ Base.checkedAttrs identity base key value model
+                        )
+                        []
                     ]
         }
 
@@ -411,7 +404,7 @@ radioField set toString options attrs =
 
         radio opt =
             let
-                optStr =
+                value =
                     toString opt
             in
             Field
@@ -422,14 +415,13 @@ radioField set toString options attrs =
                 , update = radioUpdate opt
                 , view =
                     \{ base, model } key ->
-                        withRightLabel [ Html.text optStr ]
-                            [ Base.radio
-                                { toMsg = identity
-                                , form = base
-                                , field = key
-                                , value = optStr
-                                }
-                                model
+                        withRightLabel [ Html.text value ]
+                            [ Html.input
+                                (HA.type_ "radio"
+                                    :: c.common.controlAttrs
+                                    ++ Base.checkedAttrs identity base key value model
+                                )
+                                []
                             ]
                 }
     in
@@ -450,7 +442,7 @@ checkboxesField insert remove toString options attrs =
 
         checkbox opt =
             let
-                asStr =
+                value =
                     toString opt
             in
             Field
@@ -458,21 +450,20 @@ checkboxesField insert remove toString options attrs =
                 , init =
                     \form field model ->
                         if List.member opt c.common.default then
-                            Base.setString form field asStr model
+                            Base.setString form field value model
 
                         else
                             model
                 , update = keyToString >> Base.checkedField (insert opt) (remove opt)
                 , view =
                     \{ base, model } key ->
-                        withRightLabel [ Html.text asStr ]
-                            [ Base.checkbox
-                                { toMsg = identity
-                                , form = base
-                                , field = key
-                                , value = asStr
-                                }
-                                model
+                        withRightLabel [ Html.text value ]
+                            [ Html.input
+                                (HA.type_ "checkbox"
+                                    :: c.common.controlAttrs
+                                    ++ Base.checkedAttrs identity base key value model
+                                )
+                                []
                             ]
                 }
     in
@@ -510,7 +501,7 @@ selectField set toString fromString options attrs =
                                     }
                                     model
                             )
-                        |> Base.select identity base key
+                        |> Html.select (Base.selectAttrs identity base key)
                     ]
         }
 
@@ -559,9 +550,7 @@ groupField wrapper form =
         { branch = form
         , init = noInit
         , update = noUpdate
-        , view =
-            \config key ->
-                wrapper (viewForm config key form)
+        , view = \config key -> wrapper (viewForm form config key)
         }
 
 
@@ -575,7 +564,7 @@ fieldset title form =
             \config key ->
                 [ Html.fieldset []
                     (Html.legend [] [ Html.text title ]
-                        :: viewForm config key form
+                        :: viewForm form config key
                     )
                 ]
         }
@@ -606,7 +595,7 @@ textLabel str =
 
 htmlAttribute : Html.Attribute (Msg out) -> Attribute (WithCommon c value out)
 htmlAttribute attr =
-    withCommon (\c -> { c | attrs = c.attrs ++ [ attr ] })
+    withCommon (\c -> { c | controlAttrs = c.controlAttrs ++ [ attr ] })
 
 
 id : String -> Attribute (WithCommon c value out)
@@ -640,10 +629,6 @@ attrToConfig zero attr =
 autofocus : Bool -> Attribute { c | autofocus : Bool }
 autofocus v o =
     { o | autofocus = v }
-
-
-
--- TODO: define type InputMode = ...
 
 
 inputmode : String -> Attribute { c | inputmode : String }
