@@ -36,11 +36,11 @@ init _ =
     ( { form =
             Form.init Example.emptyExample
                 |> Form.setString exampleForm MyText "hello world"
-                |> Form.setChecked exampleForm MyCheckbox "y" True
-                |> Form.setChecked exampleForm MyRadio zebra True
+                |> Form.setChecked exampleForm MyCheckbox True
+                |> Form.setString exampleForm MyRadio zebra
                 |> Form.setString exampleForm MySelect zebra
-                |> Form.setChecked exampleForm (MyCheckboxes Cat) cat True
-                |> Form.setChecked exampleForm (MyCheckboxes Zebra) zebra True
+                |> Form.setString exampleForm (MyCheckboxes Cat) cat
+                |> Form.setString exampleForm (MyCheckboxes Zebra) zebra
       , submitted = []
       }
     , Cmd.none

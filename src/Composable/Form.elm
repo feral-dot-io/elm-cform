@@ -13,6 +13,7 @@ module Composable.Form exposing
     , checkboxesField
     , class
     , column
+    , default
     , empty
     , fieldset
     , htmlAttribute
@@ -34,7 +35,6 @@ module Composable.Form exposing
     )
 
 import Array exposing (Array)
-import Debug exposing (toString)
 import Html exposing (Html)
 import Html.Attributes as HA
 import Html.Form as Base
@@ -55,7 +55,9 @@ type alias Key =
 
 type Field out
     = Field
-        { field : Key -> Key -> Base.Field Error out
+        { branch : Form out
+        , init : BaseForm out -> Key -> Model out -> Model out
+        , update : Key -> Base.Field Error out
         , view : ViewConfig out -> Key -> List (Html (Msg out))
         }
 
@@ -80,9 +82,16 @@ type alias Model out =
     Base.Model Key Error out
 
 
-init : out -> Model out
-init emptyOut =
-    Base.init emptyOut
+init : Form out -> out -> Model out
+init form emptyOut =
+    let
+        base =
+            formToBase form
+    in
+    traverse (\(Field field) -> field.init base)
+        form
+        Array.empty
+        (Base.init emptyOut)
 
 
 type alias Msg out =
@@ -92,6 +101,48 @@ type alias Msg out =
 update : Form out -> Msg out -> Model out -> ( Model out, Base.SubmitTrigger )
 update form =
     Base.update (formToBase form)
+
+
+formToBase : Form out -> BaseForm out
+formToBase form key =
+    findField (\(Field field) -> field.update key) form key
+        |> Maybe.withDefault Base.emptyField
+
+
+traverse : (Field out -> Key -> acc -> acc) -> Form out -> Key -> acc -> acc
+traverse cb (Form fields) key acc =
+    List.foldl
+        (\(Field field) ( i, acc2 ) ->
+            let
+                nextKey =
+                    Array.push i key
+            in
+            ( i + 1
+            , cb (Field field) nextKey acc2
+                |> traverse cb field.branch nextKey
+            )
+        )
+        ( 0, acc )
+        fields
+        |> Tuple.second
+
+
+findField : (Field out -> a) -> Form out -> Key -> Maybe a
+findField cb (Form fields) key =
+    let
+        rem =
+            Array.slice 1 (Array.length key) key
+    in
+    Array.get 0 key
+        |> Maybe.andThen (\i -> List.getAt i fields)
+        |> Maybe.andThen
+            (\(Field field) ->
+                if Array.isEmpty rem then
+                    Just (cb (Field field))
+
+                else
+                    findField cb field.branch rem
+            )
 
 
 type alias SubmitStrategy =
@@ -123,7 +174,7 @@ view toMsg formId form model =
             }
 
         children =
-            viewFields config Array.empty (formFields form)
+            viewForm config Array.empty form
     in
     Html.form
         (HA.id formId :: Base.formAttrs identity)
@@ -135,8 +186,8 @@ view toMsg formId form model =
 -- TODO: should fields come first?
 
 
-viewFields : ViewConfig out -> Key -> List (Field out) -> List (Html (Msg out))
-viewFields config prefix fields =
+viewForm : ViewConfig out -> Key -> Form out -> List (Html (Msg out))
+viewForm config prefix (Form fields) =
     let
         viewField i (Field field) =
             Html.div [ HA.class "field" ]
@@ -184,40 +235,18 @@ appendIf on field form =
         form
 
 
-formFields : Form out -> List (Field out)
-formFields (Form fields) =
-    fields
-
-
-formToBase : Form out -> BaseForm out
-formToBase (Form fields) key =
-    onBranch fields key key
-
-
-onLeaf : (String -> Base.Field String out) -> Key -> Key -> Base.Field String out
-onLeaf cb fullKey _ =
-    cb (keyToString fullKey)
-
-
-onKeyedLeaf : (Key -> Base.Field String out) -> Key -> Key -> Base.Field String out
-onKeyedLeaf cb fullKey _ =
-    cb fullKey
-
-
-onBranch : List (Field out) -> Key -> Key -> Base.Field String out
-onBranch fields fullKey key =
-    Array.get 0 key
-        |> Maybe.andThen (\i -> List.getAt i fields)
-        |> Maybe.map
-            (\(Field field) ->
-                field.field fullKey (Array.slice 1 (Array.length key) key)
-            )
-        |> Maybe.withDefault Base.emptyField
-
-
 
 -- Helpers
--- Helpers
+
+
+noInit : BaseForm out -> Key -> Model out -> Model out
+noInit _ _ model =
+    model
+
+
+noUpdate : Key -> Base.Field String out
+noUpdate _ =
+    Base.emptyField
 
 
 keyToString : Key -> String
@@ -249,17 +278,18 @@ withRightLabel right inner =
 -- Common field
 
 
-type alias Common out =
+type alias Common value out =
     { attrs : List (Html.Attribute (Msg out))
     , class : String
+    , default : value
     , id : String
     , label : List (Html (Msg out))
     }
 
 
-emptyCommon : Common out
-emptyCommon =
-    Common [] "" "" []
+emptyCommon : value -> Common value out
+emptyCommon def =
+    Common [] "" def "" []
 
 
 
@@ -267,7 +297,7 @@ emptyCommon =
 
 
 type alias TextConfig out =
-    { common : Common out
+    { common : Common String out
     , autofocus : Bool
     , inputmode : String
     , placeholder : String
@@ -277,7 +307,7 @@ type alias TextConfig out =
 
 emptyTextConfig : TextConfig out
 emptyTextConfig =
-    TextConfig emptyCommon False "" "" "text"
+    TextConfig (emptyCommon "") False "" "" "text"
 
 
 inputField : (String -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
@@ -287,7 +317,9 @@ inputField set attrs =
             attrToConfig emptyTextConfig attrs
     in
     Field
-        { field = onLeaf (Base.stringField set)
+        { branch = empty
+        , init = \form field -> Base.setString form field c.common.default
+        , update = keyToString >> Base.stringField set
         , view =
             \{ base, model } key ->
                 withLeftLabel c.common.label
@@ -305,23 +337,38 @@ inputField set attrs =
 
 
 type alias CheckedConfig out =
-    { common : Common out
+    { common : Common Bool out
     }
 
 
 emptyCheckedConfig : CheckedConfig out
 emptyCheckedConfig =
-    CheckedConfig emptyCommon
+    CheckedConfig (emptyCommon False)
 
 
 checkboxField : (Bool -> out -> out) -> List (Attribute (CheckedConfig out)) -> Field out
 checkboxField set attrs =
     let
+        value =
+            "y"
+
         c =
             attrToConfig emptyCheckedConfig attrs
     in
     Field
-        { field = onLeaf (Base.boolField set)
+        { branch = empty
+        , init =
+            \form field ->
+                Base.setValue
+                    form
+                    field
+                    (if c.common.default then
+                        Just value
+
+                     else
+                        Nothing
+                    )
+        , update = keyToString >> Base.boolField set
         , view =
             \{ base, model } key ->
                 withRightLabel c.common.label
@@ -329,7 +376,7 @@ checkboxField set attrs =
                         { toMsg = identity
                         , form = base
                         , field = key
-                        , value = "y"
+                        , value = value
                         }
                         model
                     ]
@@ -340,21 +387,21 @@ checkboxField set attrs =
 -- Radios field
 
 
-type alias OptionConfig out =
-    { common : Common out
+type alias OptionConfig option out =
+    { common : Common option out
     }
 
 
-emptyOptionConfig : OptionConfig out
-emptyOptionConfig =
-    OptionConfig emptyCommon
+emptyOptionConfig : option -> OptionConfig option out
+emptyOptionConfig def =
+    OptionConfig (emptyCommon def)
 
 
-radioField : (Maybe option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig out)) -> Field out
+radioField : (Maybe option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig (Maybe option) out)) -> Field out
 radioField set toString options attrs =
     let
         c =
-            attrToConfig emptyOptionConfig attrs
+            attrToConfig (emptyOptionConfig Nothing) attrs
 
         radioUpdate opt key =
             Base.checkedField
@@ -368,7 +415,11 @@ radioField set toString options attrs =
                     toString opt
             in
             Field
-                { field = onKeyedLeaf (radioUpdate opt)
+                { branch = empty
+                , init =
+                    \form field ->
+                        Base.setValue form field (Maybe.map toString c.common.default)
+                , update = radioUpdate opt
                 , view =
                     \{ base, model } key ->
                         withRightLabel [ Html.text optStr ]
@@ -391,11 +442,11 @@ radioField set toString options attrs =
 -- Checkboxes
 
 
-checkboxesField : (option -> out -> out) -> (option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig out)) -> Field out
+checkboxesField : (option -> out -> out) -> (option -> out -> out) -> (option -> String) -> List option -> List (Attribute (OptionConfig (List option) out)) -> Field out
 checkboxesField insert remove toString options attrs =
     let
         c =
-            attrToConfig emptyOptionConfig attrs
+            attrToConfig (emptyOptionConfig []) attrs
 
         checkbox opt =
             let
@@ -403,7 +454,15 @@ checkboxesField insert remove toString options attrs =
                     toString opt
             in
             Field
-                { field = onLeaf (Base.checkedField (insert opt) (remove opt))
+                { branch = empty
+                , init =
+                    \form field model ->
+                        if List.member opt c.common.default then
+                            Base.setString form field asStr model
+
+                        else
+                            model
+                , update = keyToString >> Base.checkedField (insert opt) (remove opt)
                 , view =
                     \{ base, model } key ->
                         withRightLabel [ Html.text asStr ]
@@ -426,14 +485,16 @@ checkboxesField insert remove toString options attrs =
 -- Select field
 
 
-selectField : (Maybe option -> out -> out) -> (option -> String) -> (String -> Maybe option) -> List option -> List (Attribute (OptionConfig out)) -> Field out
+selectField : (Maybe option -> out -> out) -> (option -> String) -> (String -> Maybe option) -> List option -> List (Attribute (OptionConfig (Maybe option) out)) -> Field out
 selectField set toString fromString options attrs =
     let
         c =
-            attrToConfig emptyOptionConfig attrs
+            attrToConfig (emptyOptionConfig Nothing) attrs
     in
     Field
-        { field = onLeaf (Base.stringField (fromString >> set))
+        { branch = empty
+        , init = \form field -> Base.setValue form field (Maybe.map toString c.common.default)
+        , update = keyToString >> Base.stringField (fromString >> set)
         , view =
             \{ base, model } key ->
                 withLeftLabel c.common.label
@@ -466,7 +527,9 @@ submit l =
 htmlField : List (Html (Msg out)) -> Field out
 htmlField raw =
     Field
-        { field = onLeaf (\_ -> Base.emptyField)
+        { branch = empty
+        , init = noInit
+        , update = noUpdate
         , view = \_ _ -> raw
         }
 
@@ -491,24 +554,28 @@ groupClassField groupClass =
 
 
 groupField : (List (Html (Msg out)) -> List (Html (Msg out))) -> Form out -> Field out
-groupField wrapper (Form fields) =
+groupField wrapper form =
     Field
-        { field = onBranch fields
+        { branch = form
+        , init = noInit
+        , update = noUpdate
         , view =
             \config key ->
-                wrapper (viewFields config key fields)
+                wrapper (viewForm config key form)
         }
 
 
 fieldset : String -> Form data -> Field data
-fieldset title (Form fields) =
+fieldset title form =
     Field
-        { field = onBranch fields
+        { branch = form
+        , init = noInit
+        , update = noUpdate
         , view =
             \config key ->
                 [ Html.fieldset []
                     (Html.legend [] [ Html.text title ]
-                        :: viewFields config key fields
+                        :: viewForm config key form
                     )
                 ]
         }
@@ -518,38 +585,43 @@ fieldset title (Form fields) =
 -- Common field attributes
 
 
-type alias WithCommon a out =
-    { a | common : Common out }
+type alias WithCommon a value out =
+    { a | common : Common value out }
 
 
-withCommon : (Common out -> Common out) -> WithCommon a out -> WithCommon a out
+withCommon : (Common value out -> Common value out) -> WithCommon a value out -> WithCommon a value out
 withCommon set o =
     { o | common = set o.common }
 
 
-label : List (Html (Msg out)) -> Attribute (WithCommon c out)
+label : List (Html (Msg out)) -> Attribute (WithCommon c value out)
 label v =
     withCommon (\c -> { c | label = v })
 
 
-textLabel : String -> Attribute (WithCommon c out)
+textLabel : String -> Attribute (WithCommon c value out)
 textLabel str =
     label [ Html.text str ]
 
 
-htmlAttribute : Html.Attribute (Msg out) -> Attribute (WithCommon c out)
+htmlAttribute : Html.Attribute (Msg out) -> Attribute (WithCommon c value out)
 htmlAttribute attr =
     withCommon (\c -> { c | attrs = c.attrs ++ [ attr ] })
 
 
-id : String -> Attribute (WithCommon c out)
+id : String -> Attribute (WithCommon c value out)
 id =
     HA.id >> htmlAttribute
 
 
-class : String -> Attribute (WithCommon c out)
+class : String -> Attribute (WithCommon c value out)
 class =
     HA.class >> htmlAttribute
+
+
+default : value -> Attribute (WithCommon c value out)
+default value =
+    withCommon (\c -> { c | default = value })
 
 
 

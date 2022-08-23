@@ -24,6 +24,7 @@ module Html.Form exposing
     , selectAttrs
     , setChecked
     , setString
+    , setValue
     , stringField
     , textInput
     , update
@@ -238,27 +239,29 @@ updateModel form event (Model db) =
         )
 
 
-{-| Sets the value for a string-based control. Used for initial form values.
--}
+setValue : Form field err out -> field -> Maybe String -> Model field err out -> Model field err out
+setValue form field value =
+    updateModel form
+        { field = field
+        , value = value
+        }
+
+
 setString : Form field err out -> field -> String -> Model field err out -> Model field err out
-setString form field val =
-    updateModel form
-        { field = field
-        , value = Just val
-        }
+setString form field value =
+    setValue form field (Just value)
 
 
-setChecked : Form field err out -> field -> String -> Bool -> Model field err out -> Model field err out
-setChecked form field val checked =
-    updateModel form
-        { field = field
-        , value =
-            if checked then
-                Just val
+setChecked : Form field err out -> field -> Bool -> Model field err out -> Model field err out
+setChecked form field checked =
+    setValue form
+        field
+        (if checked then
+            Just "y"
 
-            else
-                Nothing
-        }
+         else
+            Nothing
+        )
 
 
 
