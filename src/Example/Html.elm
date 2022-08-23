@@ -4,7 +4,7 @@ import Browser
 import Example exposing (..)
 import Html exposing (Html)
 import Html.Attributes as HA
-import Html.Form as Form exposing (Form)
+import Html.Form as Form
 
 
 main : Program () Model Msg

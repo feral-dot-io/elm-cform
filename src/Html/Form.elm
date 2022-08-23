@@ -3,7 +3,6 @@ module Html.Form exposing
     , Form
     , Model
     , Msg
-    , SubmitTrigger
     , attrs
     , autoSubmit
     , boolField
@@ -26,6 +25,7 @@ module Html.Form exposing
     , setString
     , setValue
     , stringField
+    , submitOnBlur
     , textInput
     , update
     )
@@ -91,63 +91,65 @@ type Msg field out
         |> Form.autoSubmit onSubmit (\f -> { model | formModel = f })
 
 -}
-update : Form field out -> Msg field out -> Model field out -> ( Model field out, SubmitTrigger )
-update form msg model =
+update : Form field out -> Msg field out -> Model field out -> Model field out
+update form msg (Model db) =
     case msg of
         OnInput event ->
-            ( updateField form event model, SubmitOnInput )
+            Model (updateField form event { db | seenInput = True })
 
         OnBlur _ ->
-            ( model, SubmitOnBlur )
+            Model { db | seenBlur = True }
 
         OnSubmit ->
-            ( model, SubmitOnForm )
+            Model { db | seenSubmit = True }
 
 
 
 -- Submission handling
 
 
-{-| Represents a submission trigger. For example if the user hits "submit" on a form we'd see a form level submission trigger.
--}
-type SubmitTrigger
-    = SubmitOnInput
-    | SubmitOnBlur
-    | SubmitOnForm
-
-
 onSubmit :
-    List SubmitTrigger
+    (Db field out -> Bool)
     -> (model -> out -> ( model, Cmd msg ))
     -> (Model field out -> model)
-    -> ( Model field out, SubmitTrigger )
+    -> Model field out
     -> ( model, Cmd msg )
-onSubmit strategies next setter ( model, sub ) =
+onSubmit seen next setter model =
     let
         (Model db) =
             model
+
+        model2 =
+            resetSeen model
     in
-    if List.member sub strategies then
+    if seen db then
         next
-            (setter (resetSinceSubmit model))
-            (currentOutput model)
+            (setter (resetSinceSubmit model2))
+            (currentOutput model2)
 
     else
-        ( setter model, Cmd.none )
+        ( setter model2, Cmd.none )
 
 
 {-| Processes return values from form updates. Runs a callback whenever any form input changes. For example used on a search query that does something as the user types.
 -}
-autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model field out -> model) -> ( Model field out, SubmitTrigger ) -> ( model, Cmd msg )
+autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model field out -> model) -> Model field out -> ( model, Cmd msg )
 autoSubmit =
-    onSubmit [ SubmitOnInput, SubmitOnForm ]
+    onSubmit .seenInput
 
 
 {-| Similiar to autoSubmit: processes form updates. Updates when a form is submitted. For example the user clicks a `<button type="submit">` or presses enter on a text input.
 -}
-onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model field out -> model) -> ( Model field out, SubmitTrigger ) -> ( model, Cmd msg )
+submitOnBlur : (model -> out -> ( model, Cmd msg )) -> (Model field out -> model) -> Model field out -> ( model, Cmd msg )
+submitOnBlur =
+    onSubmit .seenBlur
+
+
+{-| Similiar to autoSubmit: processes form updates. Updates when a form is submitted. For example the user clicks a `<button type="submit">` or presses enter on a text input.
+-}
+onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model field out -> model) -> Model field out -> ( model, Cmd msg )
 onFormSubmit =
-    onSubmit [ SubmitOnForm ]
+    onSubmit .seenSubmit
 
 
 
@@ -157,7 +159,10 @@ onFormSubmit =
 {-| Holds our internal form state.
 -}
 type alias Db field out =
-    { out : out
+    { seenInput : Bool
+    , seenBlur : Bool
+    , seenSubmit : Bool
+    , out : out
     , state : Dict String String
     , touched : List field
     , touchedSinceSubmit : List field
@@ -168,7 +173,7 @@ type alias Db field out =
 
 emptyDB : out -> Db field out
 emptyDB emptyOut =
-    Db emptyOut Dict.empty [] [] [] []
+    Db False False False emptyOut Dict.empty [] [] [] []
 
 
 {-| Returns the model's current output built up from form events.
@@ -178,13 +183,23 @@ currentOutput (Model db) =
     db.out
 
 
+resetSeen : Model field out -> Model field out
+resetSeen (Model db) =
+    Model
+        { db
+            | seenInput = False
+            , seenBlur = False
+            , seenSubmit = False
+        }
+
+
 resetSinceSubmit : Model field out -> Model field out
 resetSinceSubmit (Model db) =
     Model { db | touchedSinceSubmit = [], changedSinceSubmit = [] }
 
 
-updateField : Form field out -> Event field -> Model field out -> Model field out
-updateField form event (Model db) =
+updateField : Form field out -> Event field -> Db field out -> Db field out
+updateField form event db =
     let
         (Field field) =
             form event.field
@@ -196,32 +211,34 @@ updateField form event (Model db) =
             else
                 event.field :: s
     in
-    Model
-        { db
-          -- Touched / changed
-            | touched = addField db.touched
-            , touchedSinceSubmit = addField db.touchedSinceSubmit
-            , changed = addField db.changed
-            , changedSinceSubmit = addField db.changedSinceSubmit
+    { db
+      -- Touched / changed
+        | touched = addField db.touched
+        , touchedSinceSubmit = addField db.touchedSinceSubmit
+        , changed = addField db.changed
+        , changedSinceSubmit = addField db.changedSinceSubmit
 
-            -- State change
-            , state =
-                case event.value of
-                    Just str ->
-                        Dict.insert field.name str db.state
+        -- State change
+        , state =
+            case event.value of
+                Just str ->
+                    Dict.insert field.name str db.state
 
-                    Nothing ->
-                        Dict.remove field.name db.state
-            , out = field.update event.value db.out
-        }
+                Nothing ->
+                    Dict.remove field.name db.state
+        , out = field.update event.value db.out
+    }
 
 
 setValue : Form field out -> field -> Maybe String -> Model field out -> Model field out
-setValue form field value =
-    updateField form
-        { field = field
-        , value = value
-        }
+setValue form field value (Model db) =
+    Model
+        (updateField form
+            { field = field
+            , value = value
+            }
+            db
+        )
 
 
 setString : Form field out -> field -> String -> Model field out -> Model field out

@@ -4,7 +4,6 @@ module Composable.Form exposing
     , Form
     , Model
     , Msg
-    , SubmitStrategy
     , append
     , appendIf
     , autoSubmit
@@ -30,6 +29,7 @@ module Composable.Form exposing
     , row
     , selectField
     , submit
+    , submitOnBlur
     , textLabel
     , type_
     , update
@@ -96,7 +96,7 @@ type alias Msg out =
     Base.Msg Key out
 
 
-update : Msg out -> Model out -> Form out -> ( Model out, Base.SubmitTrigger )
+update : Msg out -> Model out -> Form out -> Model out
 update msg model form =
     Base.update (formToBase form) msg model
 
@@ -143,16 +143,17 @@ findField cb (Form fields) key =
             )
 
 
-type alias SubmitStrategy =
-    Base.SubmitTrigger
-
-
-autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> ( Model out, SubmitStrategy ) -> ( model, Cmd msg )
+autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
 autoSubmit =
     Base.autoSubmit
 
 
-onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> ( Model out, SubmitStrategy ) -> ( model, Cmd msg )
+submitOnBlur : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
+submitOnBlur =
+    Base.submitOnBlur
+
+
+onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
 onFormSubmit =
     Base.onFormSubmit
 
