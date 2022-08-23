@@ -46,7 +46,7 @@ type Form out
 
 
 type alias BaseForm out =
-    Base.Form Key Error out
+    Base.Form Key out
 
 
 type alias Key =
@@ -57,7 +57,7 @@ type Field out
     = Field
         { branch : Form out
         , init : BaseForm out -> Key -> Model out -> Model out
-        , update : Key -> Base.Field Error out
+        , update : Key -> Base.Field out
         , view : ViewConfig out -> Key -> List (Html (Msg out))
         }
 
@@ -70,16 +70,12 @@ type alias ViewConfig out =
     }
 
 
-type alias Error =
-    String
-
-
 
 -- TEA
 
 
 type alias Model out =
-    Base.Model Key Error out
+    Base.Model Key out
 
 
 init : Form out -> out -> Model out
@@ -238,7 +234,7 @@ noInit _ _ model =
     model
 
 
-noUpdate : Key -> Base.Field String out
+noUpdate : Key -> Base.Field out
 noUpdate _ =
     Base.emptyField
 

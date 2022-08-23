@@ -2,10 +2,9 @@ module Example.Html exposing (main)
 
 import Browser
 import Example exposing (..)
-import Form.Decoder as Form
 import Html exposing (Html)
 import Html.Attributes as HA
-import Html.Form as Form
+import Html.Form as Form exposing (Form)
 
 
 main : Program () Model Msg
@@ -19,7 +18,7 @@ main =
 
 
 type alias Model =
-    { form : Form.Model ExampleControl String Example
+    { form : Form.Model ExampleControl Example
     , submitted : List Example
     }
 
@@ -79,19 +78,11 @@ view m =
 -- How to render our controls
 
 
-viewExampleForm : Form.Model ExampleControl String Example -> Html Msg
+viewExampleForm : Form.Model ExampleControl Example -> Html Msg
 viewExampleForm model =
     let
         animals =
             [ Dog, Cat, Zebra ]
-
-        errToText state =
-            case state.error of
-                Just err ->
-                    [ Html.text ("Error: " ++ err) ]
-
-                Nothing ->
-                    []
 
         myTextField =
             Form.textInput
@@ -131,12 +122,11 @@ viewExampleForm model =
     Html.form (Form.formAttrs FormMsg)
         -- Text
         [ Html.p []
-            (Html.label []
+            [ Html.label []
                 [ Html.text "My text field:"
                 , myTextField model
                 ]
-                :: errToText (Form.fieldState exampleForm MyText model)
-            )
+            ]
 
         -- Checkbox
         , Html.p []
@@ -173,7 +163,6 @@ viewExampleForm model =
             |> Form.select FormMsg exampleForm MySelect
 
         -- Checkboxes
-        --, Html.p [] (errToText (Form.fieldError "myChec" myCheckboxesErr))
         , animals
             |> List.map
                 (\animal ->
@@ -199,14 +188,13 @@ type ExampleControl
     | MyCheckboxes Animal
 
 
-exampleForm : ExampleControl -> Form.Field String Example
+exampleForm : ExampleControl -> Form.Field Example
 exampleForm key =
     case key of
         MyText ->
             Form.stringField (\v d -> { d | myText = v })
                 "myText"
 
-        --|> Form.assert (Form.minLength "Text field cannot be empty" 1)
         MyCheckbox ->
             Form.boolField (\v d -> { d | myCheckbox = v })
                 "myCheckbox"

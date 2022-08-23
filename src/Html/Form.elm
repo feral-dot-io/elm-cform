@@ -43,16 +43,16 @@ import Json.Decode as JD
 
 {-| The Form type holds a conversion function that maps our `control` type to a `Control`
 -}
-type alias Form field err out =
-    field -> Field err out
+type alias Form field out =
+    field -> Field out
 
 
 {-| Represents a form control. Used to create the events of a page's Html attributes
 -}
-type Field err out
+type Field out
     = Field
         { name : String
-        , update : Maybe String -> out -> Result err out
+        , update : Maybe String -> out -> out
         }
 
 
@@ -62,13 +62,13 @@ type Field err out
 
 {-| Holds our internal DB tracking a form's current values
 -}
-type Model field err out
-    = Model (Db field err out)
+type Model field out
+    = Model (Db field out)
 
 
 {-| Creates an empty model. Requires an empty value for our returned `out` record. This `out` record is never read and not used in the form's HTML -- fields are only set in response to events. You should use `setString` and setChecked\` to set initial values in the form.
 -}
-init : out -> Model field err out
+init : out -> Model field out
 init emptyOut =
     Model (emptyDB emptyOut)
 
@@ -91,11 +91,11 @@ type Msg field out
         |> Form.autoSubmit onSubmit (\f -> { model | formModel = f })
 
 -}
-update : Form field err out -> Msg field out -> Model field err out -> ( Model field err out, SubmitTrigger )
+update : Form field out -> Msg field out -> Model field out -> ( Model field out, SubmitTrigger )
 update form msg model =
     case msg of
         OnInput event ->
-            ( updateModel form event model, SubmitOnInput )
+            ( updateField form event model, SubmitOnInput )
 
         OnBlur _ ->
             ( model, SubmitOnBlur )
@@ -119,15 +119,15 @@ type SubmitTrigger
 onSubmit :
     List SubmitTrigger
     -> (model -> out -> ( model, Cmd msg ))
-    -> (Model field err out -> model)
-    -> ( Model field err out, SubmitTrigger )
+    -> (Model field out -> model)
+    -> ( Model field out, SubmitTrigger )
     -> ( model, Cmd msg )
 onSubmit strategies next setter ( model, sub ) =
     let
         (Model db) =
             model
     in
-    if List.member sub strategies && List.isEmpty db.errors then
+    if List.member sub strategies then
         next
             (setter (resetSinceSubmit model))
             (currentOutput model)
@@ -138,14 +138,14 @@ onSubmit strategies next setter ( model, sub ) =
 
 {-| Processes return values from form updates. Runs a callback whenever any form input changes. For example used on a search query that does something as the user types.
 -}
-autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model field err out -> model) -> ( Model field err out, SubmitTrigger ) -> ( model, Cmd msg )
+autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model field out -> model) -> ( Model field out, SubmitTrigger ) -> ( model, Cmd msg )
 autoSubmit =
     onSubmit [ SubmitOnInput, SubmitOnForm ]
 
 
 {-| Similiar to autoSubmit: processes form updates. Updates when a form is submitted. For example the user clicks a `<button type="submit">` or presses enter on a text input.
 -}
-onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model field err out -> model) -> ( Model field err out, SubmitTrigger ) -> ( model, Cmd msg )
+onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model field out -> model) -> ( Model field out, SubmitTrigger ) -> ( model, Cmd msg )
 onFormSubmit =
     onSubmit [ SubmitOnForm ]
 
@@ -156,10 +156,9 @@ onFormSubmit =
 
 {-| Holds our internal form state.
 -}
-type alias Db field err out =
+type alias Db field out =
     { out : out
     , state : Dict String String
-    , errors : List ( field, err )
     , touched : List field
     , touchedSinceSubmit : List field
     , changed : List field
@@ -167,25 +166,25 @@ type alias Db field err out =
     }
 
 
-emptyDB : out -> Db field err out
+emptyDB : out -> Db field out
 emptyDB emptyOut =
-    Db emptyOut Dict.empty [] [] [] [] []
+    Db emptyOut Dict.empty [] [] [] []
 
 
 {-| Returns the model's current output built up from form events.
 -}
-currentOutput : Model field err out -> out
+currentOutput : Model field out -> out
 currentOutput (Model db) =
     db.out
 
 
-resetSinceSubmit : Model field err out -> Model field err out
+resetSinceSubmit : Model field out -> Model field out
 resetSinceSubmit (Model db) =
     Model { db | touchedSinceSubmit = [], changedSinceSubmit = [] }
 
 
-updateModel : Form field err out -> Event field -> Model field err out -> Model field err out
-updateModel form event (Model db) =
+updateField : Form field out -> Event field -> Model field out -> Model field out
+updateField form event (Model db) =
     let
         (Field field) =
             form event.field
@@ -196,54 +195,41 @@ updateModel form event (Model db) =
 
             else
                 event.field :: s
-
-        -- Update our tracking state
-        db2 =
-            { db
-              -- Touched / changed
-                | touched = addField db.touched
-                , touchedSinceSubmit = addField db.touchedSinceSubmit
-                , changed = addField db.changed
-                , changedSinceSubmit = addField db.changedSinceSubmit
-
-                -- State change
-                , state =
-                    case event.value of
-                        Just str ->
-                            Dict.insert field.name str db.state
-
-                        Nothing ->
-                            Dict.remove field.name db.state
-                , errors =
-                    List.filter (\( check, _ ) -> check /= event.field)
-                        db.errors
-            }
     in
     Model
-        -- Update our output or error
-        (case field.update event.value db2.out of
-            Ok out ->
-                { db2 | out = out }
+        { db
+          -- Touched / changed
+            | touched = addField db.touched
+            , touchedSinceSubmit = addField db.touchedSinceSubmit
+            , changed = addField db.changed
+            , changedSinceSubmit = addField db.changedSinceSubmit
 
-            Err err ->
-                { db2 | errors = ( event.field, err ) :: db2.errors }
-        )
+            -- State change
+            , state =
+                case event.value of
+                    Just str ->
+                        Dict.insert field.name str db.state
+
+                    Nothing ->
+                        Dict.remove field.name db.state
+            , out = field.update event.value db.out
+        }
 
 
-setValue : Form field err out -> field -> Maybe String -> Model field err out -> Model field err out
+setValue : Form field out -> field -> Maybe String -> Model field out -> Model field out
 setValue form field value =
-    updateModel form
+    updateField form
         { field = field
         , value = value
         }
 
 
-setString : Form field err out -> field -> String -> Model field err out -> Model field err out
+setString : Form field out -> field -> String -> Model field out -> Model field out
 setString form field value =
     setValue form field (Just value)
 
 
-setChecked : Form field err out -> field -> Bool -> Model field err out -> Model field err out
+setChecked : Form field out -> field -> Bool -> Model field out -> Model field out
 setChecked form field checked =
     setValue form
         field
@@ -259,25 +245,25 @@ setChecked form field checked =
 -- Creating a control
 
 
-rawField : (Maybe String -> out -> out) -> String -> Field err out
+rawField : (Maybe String -> out -> out) -> String -> Field out
 rawField set name =
     Field
         { name = name
-        , update = \value out -> Ok (set value out)
+        , update = \value out -> set value out
         }
 
 
-stringField : (String -> out -> out) -> String -> Field err out
+stringField : (String -> out -> out) -> String -> Field out
 stringField set =
     rawField (Maybe.withDefault "" >> set)
 
 
-boolField : (Bool -> out -> out) -> String -> Field err out
+boolField : (Bool -> out -> out) -> String -> Field out
 boolField set =
     rawField (\value out -> set (value /= Nothing) out)
 
 
-checkedField : (out -> out) -> (out -> out) -> String -> Field err out
+checkedField : (out -> out) -> (out -> out) -> String -> Field out
 checkedField on off =
     boolField
         (\checked out ->
@@ -289,7 +275,7 @@ checkedField on off =
         )
 
 
-optionsField : (List option -> out -> out) -> (out -> List option) -> String -> option -> Field err out
+optionsField : (List option -> out -> out) -> (out -> List option) -> String -> option -> Field out
 optionsField set get name opt =
     checkedField
         (\out -> set (opt :: get out) out)
@@ -297,19 +283,18 @@ optionsField set get name opt =
         name
 
 
-emptyField : Field err out
+emptyField : Field out
 emptyField =
-    Field { name = "", update = \_ out -> Ok out }
+    rawField (\_ out -> out) ""
 
 
 
 -- State handling
 
 
-type alias FieldState field err =
+type alias FieldState field =
     { field : field
     , value : Maybe String
-    , error : Maybe err
     , touched : Bool
     , touchedSinceSubmit : Bool
     , changed : Bool
@@ -317,7 +302,7 @@ type alias FieldState field err =
     }
 
 
-fieldName : Form field err out -> field -> String
+fieldName : Form field out -> field -> String
 fieldName form fieldKey =
     let
         (Field field) =
@@ -326,26 +311,15 @@ fieldName form fieldKey =
     field.name
 
 
-fieldValue : Form field err out -> field -> Model field err out -> Maybe String
+fieldValue : Form field out -> field -> Model field out -> Maybe String
 fieldValue form field (Model db) =
     Dict.get (fieldName form field) db.state
 
 
-fieldState : Form field err out -> field -> Model field err out -> FieldState field err
+fieldState : Form field out -> field -> Model field out -> FieldState field
 fieldState form field (Model db) =
     { field = field
     , value = fieldValue form field (Model db)
-    , error =
-        db.errors
-            |> List.filterMap
-                (\( check, err ) ->
-                    if check == field then
-                        Just err
-
-                    else
-                        Nothing
-                )
-            |> List.head
     , touched = List.member field db.touched
     , touchedSinceSubmit = List.member field db.touchedSinceSubmit
     , changed = List.member field db.changed
@@ -396,7 +370,7 @@ checkedEventDecoder field =
     eventDecoder field HE.targetChecked
 
 
-attrs : (Msg field out -> msg) -> Form field err out -> field -> Model field err out -> List (Html.Attribute msg)
+attrs : (Msg field out -> msg) -> Form field out -> field -> Model field out -> List (Html.Attribute msg)
 attrs toMsg form field model =
     [ HE.stopPropagationOn "input"
         (JD.map
@@ -409,7 +383,7 @@ attrs toMsg form field model =
     ]
 
 
-checkedAttrs : (Msg field out -> msg) -> Form field err out -> field -> String -> Model field err out -> List (Html.Attribute msg)
+checkedAttrs : (Msg field out -> msg) -> Form field out -> field -> String -> Model field out -> List (Html.Attribute msg)
 checkedAttrs toMsg form field value model =
     [ HE.stopPropagationOn "input"
         (JD.map
@@ -423,14 +397,14 @@ checkedAttrs toMsg form field value model =
     ]
 
 
-optionAttrs : Form field err out -> field -> String -> Model field err out -> List (Html.Attribute msg)
+optionAttrs : Form field out -> field -> String -> Model field out -> List (Html.Attribute msg)
 optionAttrs form field value model =
     [ HA.value value
     , HA.selected (fieldValue form field model == Just value)
     ]
 
 
-selectAttrs : (Msg field out -> msg) -> Form field err out -> field -> List (Html.Attribute msg)
+selectAttrs : (Msg field out -> msg) -> Form field out -> field -> List (Html.Attribute msg)
 selectAttrs toMsg form field =
     [ HE.on "change"
         (JD.map (OnInput >> toMsg)
@@ -449,10 +423,10 @@ selectAttrs toMsg form field =
 -}
 textInput :
     { toMsg : Msg field out -> msg
-    , form : Form field err out
+    , form : Form field out
     , field : field
     }
-    -> Model field err out
+    -> Model field out
     -> Html msg
 textInput { toMsg, form, field } model =
     Html.input (HA.type_ "text" :: attrs toMsg form field model) []
@@ -462,11 +436,11 @@ textInput { toMsg, form, field } model =
 -}
 checkbox :
     { toMsg : Msg field out -> msg
-    , form : Form field err out
+    , form : Form field out
     , field : field
     , value : String
     }
-    -> Model field err out
+    -> Model field out
     -> Html msg
 checkbox { toMsg, form, field, value } model =
     Html.input (HA.type_ "checkbox" :: checkedAttrs toMsg form field value model) []
@@ -476,23 +450,23 @@ checkbox { toMsg, form, field, value } model =
 -}
 radio :
     { toMsg : Msg field out -> msg
-    , form : Form field err out
+    , form : Form field out
     , field : field
     , value : String
     }
-    -> Model field err out
+    -> Model field out
     -> Html msg
 radio { toMsg, form, field, value } model =
     Html.input (HA.type_ "radio" :: checkedAttrs toMsg form field value model) []
 
 
 option :
-    { form : Form field err out
+    { form : Form field out
     , field : field
     , value : String
     , label : String
     }
-    -> Model field err out
+    -> Model field out
     -> Html msg
 option { form, field, value, label } model =
     Html.option
@@ -500,6 +474,6 @@ option { form, field, value, label } model =
         [ Html.text label ]
 
 
-select : (Msg field out -> msg) -> Form field err out -> field -> List (Html msg) -> Html msg
+select : (Msg field out -> msg) -> Form field out -> field -> List (Html msg) -> Html msg
 select toMsg form field options =
     Html.select (selectAttrs toMsg form field) options
