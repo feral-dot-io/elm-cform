@@ -90,9 +90,10 @@ exampleForm =
                 ]
 
         mySelectField =
-            Form.selectField (\v d -> { d | mySelect = v })
+            Form.maybeSelectField (\v d -> { d | mySelect = v })
                 animalToString
                 stringToAnimal
+                "None"
                 animals
                 [ Form.textLabel "mySelect"
                 , Form.default (Just Zebra)

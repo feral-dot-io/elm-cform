@@ -17,11 +17,13 @@ module Composable.Form exposing
     , empty
     , fieldset
     , htmlAttribute
+    , htmlField
     , id
     , init
     , inputField
     , inputmode
     , label
+    , maybeSelectField
     , onFormSubmit
     , placeholder
     , radioField
@@ -474,6 +476,16 @@ checkboxesField insert remove toString options attrs =
 
 selectField : (Maybe option -> out -> out) -> (option -> String) -> (String -> Maybe option) -> List option -> List (Attribute (OptionConfig (Maybe option) out)) -> Field out
 selectField set toString fromString options attrs =
+    selectField_ set toString fromString Nothing options attrs
+
+
+maybeSelectField : (Maybe option -> out -> out) -> (option -> String) -> (String -> Maybe option) -> String -> List option -> List (Attribute (OptionConfig (Maybe option) out)) -> Field out
+maybeSelectField set toString fromString none options attrs =
+    selectField_ set toString fromString (Just none) options attrs
+
+
+selectField_ : (Maybe option -> out -> out) -> (option -> String) -> (String -> Maybe option) -> Maybe String -> List option -> List (Attribute (OptionConfig (Maybe option) out)) -> Field out
+selectField_ set toString fromString none options attrs =
     let
         c =
             attrToConfig (emptyOptionConfig Nothing) attrs
@@ -484,19 +496,24 @@ selectField set toString fromString options attrs =
         , update = keyToString >> Base.stringField (fromString >> set)
         , view =
             \{ base, model } key ->
+                let
+                    option value inner =
+                        Base.option
+                            { form = base
+                            , field = key
+                            , value = value
+                            , label = inner
+                            }
+                            model
+
+                    htmlOptions =
+                        List.map toString options
+                            |> List.map (\value -> option value value)
+                in
                 withLeftLabel c.common.label
-                    [ options
-                        |> List.map toString
-                        |> List.map
-                            (\value ->
-                                Base.option
-                                    { form = base
-                                    , field = key
-                                    , value = value
-                                    , label = value
-                                    }
-                                    model
-                            )
+                    [ Maybe.map (option "") none
+                        |> Maybe.map (\opt -> opt :: htmlOptions)
+                        |> Maybe.withDefault htmlOptions
                         |> Html.select (Base.selectAttrs identity base key)
                     ]
         }
