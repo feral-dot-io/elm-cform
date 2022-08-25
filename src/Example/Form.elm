@@ -4,6 +4,7 @@ import Browser
 import Example exposing (..)
 import Form exposing (Form)
 import Html exposing (Html)
+import Html.Attributes as HA
 
 
 main : Program () Model Msg
@@ -54,7 +55,8 @@ view : Model -> Html Msg
 view m =
     Html.article []
         [ Html.h1 [] [ Html.text "Example form" ]
-        , Form.view FormMsg "examples" m.form exampleForm
+        , Html.div [ HA.style "width" "20em" ]
+            [ Form.view FormMsg "examples" m.form exampleForm ]
         , Html.div [] (viewExamples m.submitted)
         ]
 

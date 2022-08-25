@@ -55,7 +55,7 @@ type Field out
         { branch : List (Field out)
         , init : Maybe InputEvent
         , update : State -> Key -> InputEvent -> out -> out
-        , view : Key -> State -> List (Html (Msg out))
+        , view : State -> Key -> List (Html (Msg out))
         }
 
 
@@ -258,7 +258,7 @@ view toMsg id (Model db) form =
         { state } =
             applyInit form db
     in
-    viewFields form [] state
+    viewFields Html.div form [] state
         |> (::) (stylesheet id)
         |> Html.form
             [ HA.id id
@@ -273,27 +273,34 @@ stylesheet formId =
         rule str =
             "#" ++ formId ++ " " ++ str
     in
-    [ rule ".column { display: flex; margin: 0; }"
-    , rule ".row { margin: 0 0.5rem; }"
+    [ rule ".field { margin: 0.5rem 0; }"
+    , rule ".row { display: flex; }"
+    , rule ".row > .field { margin: 0 0.5rem; }"
+    , rule ".row > .field:first-child { margin-left: 0; }"
+    , rule ".column { margin: 0 0.5rem; }"
+    , rule ".column > .field:first-child { margin: 0; }"
+    , rule ".field > label, .field > .label { display: block; font-weight: bold; }"
+    , rule ".field > input~label, .field > input~.label { display: initial; font-weight: normal; }"
+    , rule "input[type=text], input[type=email], input[type=password], input[type=number], textarea, select { width: 100%; padding: 0.6rem 0.3rem; box-sizing: border-box; }"
+    , rule "input[type=checkbox], input[type=radio] { margin: 0 0.5rem; }"
+    , rule ".controls { list-style-type: none; margin: 0; padding: 0; align-items: stretch; }"
+    , rule ".controls > li { margin: 0 0.25rem; white-space: nowrap; }"
+    , rule "button { padding: 0.4rem 4rem; }"
+    , rule "fieldset > .field { margin: 0; width: fit-content; }"
     ]
         |> String.join "\n"
         |> (Html.text >> List.singleton)
         |> Html.node "style" []
 
 
-viewFields : Form out -> Key -> State -> List (Html (Msg out))
-viewFields (Form fields) prefix state =
+viewFields : (List (Html.Attribute (Msg out)) -> List (Html (Msg out)) -> Html (Msg out)) -> Form out -> Key -> State -> List (Html (Msg out))
+viewFields el (Form fields) prefix state =
     let
         viewField i (Field field) =
-            divField
-                (field.view (List.append prefix [ i ]) state)
+            el [ HA.class "field" ]
+                (field.view state (List.append prefix [ i ]))
     in
     List.indexedMap viewField fields
-
-
-divField : List (Html (Msg out)) -> Html (Msg out)
-divField =
-    Html.div [ HA.class "field" ]
 
 
 
@@ -431,17 +438,12 @@ checkedAttrs eventDecoder key value state =
 
 
 withLeftLabel : List (Html (Msg out)) -> List (Html (Msg out)) -> List (Html (Msg out))
-withLeftLabel =
-    withLeftElement (Html.label [])
-
-
-withLeftElement : (List (Html (Msg out)) -> Html (Msg out)) -> List (Html (Msg out)) -> List (Html (Msg out)) -> List (Html (Msg out))
-withLeftElement el left inner =
+withLeftLabel left inner =
     if List.isEmpty left then
         inner
 
     else
-        [ el (left ++ inner) ]
+        [ Html.label [] (left ++ inner) ]
 
 
 withRightLabel : List (Html (Msg out)) -> List (Html (Msg out)) -> List (Html (Msg out))
@@ -451,6 +453,15 @@ withRightLabel right inner =
 
     else
         [ Html.label [] (inner ++ right) ]
+
+
+divLabel : List (Html msg) -> List (Html msg)
+divLabel l =
+    if List.isEmpty l then
+        []
+
+    else
+        [ Html.div [ HA.class "label" ] l ]
 
 
 
@@ -497,6 +508,16 @@ textField set attrs =
 
         c =
             attrToConfig emptyTextConfig attrs
+
+        ifAttr include attr =
+            if include then
+                [ attr ]
+
+            else
+                []
+
+        ifStrAttr str =
+            ifAttr (not (String.isEmpty str))
     in
     Field
         { branch = noBranch
@@ -507,11 +528,14 @@ textField set attrs =
                     |> Maybe.map (\v -> set v out)
                     |> Maybe.withDefault out
         , view =
-            \key state ->
+            \state key ->
                 withLeftLabel c.common.label
                     [ Html.input
                         (HA.type_ c.type_
-                            :: c.common.attrs
+                            :: ifAttr c.autofocus (HA.autofocus c.autofocus)
+                            ++ ifStrAttr c.inputmode (HA.attribute "inputmode" c.inputmode)
+                            ++ ifStrAttr c.placeholder (HA.placeholder c.placeholder)
+                            ++ c.common.attrs
                             ++ valueAttrs key state
                         )
                         []
@@ -556,7 +580,7 @@ checkboxField set attrs =
                     |> Maybe.map (\v -> set v out)
                     |> Maybe.withDefault out
         , view =
-            \key state ->
+            \state key ->
                 withRightLabel c.common.label
                     [ Html.input
                         (HA.type_ "checkbox"
@@ -642,12 +666,12 @@ radioField args =
         c =
             attrToConfig emptyOptionConfig args.attributes
 
-        control key db value =
+        control state key value =
             withRightLabel [ Html.text value ]
                 [ Html.input
                     (HA.type_ "radio"
                         :: c.common.attrs
-                        ++ checkedAttrs targetValueDecoder key value db
+                        ++ checkedAttrs targetValueDecoder key value state
                     )
                     []
                 ]
@@ -657,13 +681,13 @@ radioField args =
         , init = optionInit args.toString c.common.default
         , update = optionUpdate args
         , view =
-            \key db ->
-                withLeftElement (Html.div [])
-                    c.common.label
-                    (availableOptions c.nothing args.options
-                        |> List.map (optionToString args.toString c.nothing >> control key db)
-                        |> List.map divField
-                    )
+            \state key ->
+                divLabel c.common.label
+                    ++ [ availableOptions c.nothing args.options
+                            |> List.map (optionToString args.toString c.nothing >> control state key)
+                            |> List.map (Html.li [])
+                            |> Html.ul [ HA.class "controls" ]
+                       ]
         }
 
 
@@ -695,7 +719,7 @@ selectField args =
         , init = optionInit args.toString c.common.default
         , update = optionUpdate args
         , view =
-            \key state ->
+            \state key ->
                 withLeftLabel c.common.label
                     [ availableOptions c.nothing args.options
                         |> List.map (optionToString args.toString c.nothing >> optionEl key state)
@@ -772,15 +796,21 @@ checkboxesField args =
                         in
                         args.set newOptions out
                 , view =
-                    \key db ->
-                        withRightLabel [ Html.text value ]
-                            [ Html.input
-                                (HA.type_ "checkbox"
-                                    :: c.common.attrs
-                                    ++ checkedAttrs targetCheckedDecoder key value db
-                                )
-                                []
-                            ]
+                    \db key ->
+                        let
+                            id =
+                                keyToString key
+                        in
+                        [ Html.input
+                            ([ HA.type_ "checkbox"
+                             , HA.id id
+                             ]
+                                ++ c.common.attrs
+                                ++ checkedAttrs targetCheckedDecoder key value db
+                            )
+                            []
+                        , Html.label [ HA.for id ] [ Html.text value ]
+                        ]
                 }
     in
     Field
@@ -788,10 +818,11 @@ checkboxesField args =
         , init = noInit
         , update = noUpdate
         , view =
-            \key db ->
-                withLeftElement (Html.div [])
-                    c.common.label
-                    (viewFields (Form innerFields) key db)
+            \db key ->
+                divLabel c.common.label
+                    ++ [ Html.ul [ HA.class "controls" ]
+                            (viewFields Html.li (Form innerFields) key db)
+                       ]
         }
 
 
@@ -820,7 +851,7 @@ groupField wrapper (Form fields) =
         { branch = fields
         , init = noInit
         , update = noUpdate
-        , view = \key db -> wrapper (viewFields (Form fields) key db)
+        , view = \db key -> wrapper (viewFields Html.div (Form fields) key db)
         }
 
 
@@ -831,10 +862,10 @@ fieldset title (Form fields) =
         , init = noInit
         , update = noUpdate
         , view =
-            \key db ->
+            \db key ->
                 [ Html.fieldset []
                     (Html.legend [] [ Html.text title ]
-                        :: viewFields (Form fields) key db
+                        :: viewFields Html.div (Form fields) key db
                     )
                 ]
         }
