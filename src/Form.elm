@@ -17,7 +17,6 @@ module Form exposing
     , htmlAttribute
     , htmlField
     , init
-    , inputField
     , inputmode
     , label
     , nothingOption
@@ -28,6 +27,7 @@ module Form exposing
     , selectField
     , submit
     , submitOnBlur
+    , textField
     , textLabel
     , type_
     , update
@@ -487,8 +487,8 @@ type alias TextConfig out =
     }
 
 
-inputField : (String -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
-inputField set attrs =
+textField : (String -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
+textField set attrs =
     let
         emptyTextConfig =
             TextConfig (emptyCommon "") False "" "" "text"

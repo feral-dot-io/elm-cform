@@ -70,7 +70,7 @@ exampleForm =
             [ Dog, Cat, Zebra ]
 
         myTextField =
-            Form.inputField (\v d -> { d | myText = v })
+            Form.textField (\v d -> { d | myText = v })
                 [ Form.textLabel "myText"
                 , Form.default "Hello world"
                 ]
