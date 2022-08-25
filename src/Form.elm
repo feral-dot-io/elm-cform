@@ -4,7 +4,6 @@ module Form exposing
     , Msg
     , append
     , appendIf
-    , autoSubmit
     , autofocus
     , checkboxField
     , checkboxesField
@@ -22,13 +21,14 @@ module Form exposing
     , intField
     , label
     , nothingOption
-    , onFormSubmit
     , placeholder
     , radioField
     , row
     , selectField
     , submit
     , submitOnChange
+    , submitOnForm
+    , submitOnInput
     , textField
     , textLabel
     , type_
@@ -257,8 +257,8 @@ onSubmit seen next setter (Model db) =
         ( setter (Model db), Cmd.none )
 
 
-autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
-autoSubmit =
+submitOnInput : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
+submitOnInput =
     onSubmit .seenInput
 
 
@@ -267,8 +267,8 @@ submitOnChange =
     onSubmit .seenChange
 
 
-onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
-onFormSubmit =
+submitOnForm : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
+submitOnForm =
     onSubmit .seenSubmit
 
 
