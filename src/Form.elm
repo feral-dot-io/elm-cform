@@ -4,11 +4,12 @@ module Form exposing
     , Msg
     , append
     , appendIf
-    , autofocus
+    , autoFocus
     , checkboxField
     , checkboxesField
     , class
     , column
+    , columns
     , controlId
     , default
     , empty
@@ -17,13 +18,14 @@ module Form exposing
     , htmlAttribute
     , htmlField
     , init
-    , inputmode
+    , inputMode
     , intField
     , label
     , nothingOption
     , placeholder
     , radioField
     , row
+    , rows
     , selectField
     , submit
     , submitOnChange
@@ -31,6 +33,7 @@ module Form exposing
     , submitOnInput
     , textField
     , textLabel
+    , textareaField
     , type_
     , update
     , view
@@ -497,6 +500,20 @@ divLabel l =
         [ Html.div [ HA.class "label" ] l ]
 
 
+ifAttr : Bool -> a -> List a
+ifAttr include attr =
+    if include then
+        [ attr ]
+
+    else
+        []
+
+
+ifStrAttr : String -> a -> List a
+ifStrAttr str =
+    ifAttr (not (String.isEmpty str))
+
+
 
 -- Field state
 
@@ -526,8 +543,8 @@ fieldState key (Model db) =
 
 type alias TextConfig out =
     { common : Common String out
-    , autofocus : Bool
-    , inputmode : String
+    , autoFocus : Bool
+    , inputMode : String
     , placeholder : String
     , type_ : String
     }
@@ -541,16 +558,6 @@ textField set attrs =
 
         c =
             attrToConfig emptyTextConfig attrs
-
-        ifAttr include attr =
-            if include then
-                [ attr ]
-
-            else
-                []
-
-        ifStrAttr str =
-            ifAttr (not (String.isEmpty str))
     in
     Field
         { branch = noBranch
@@ -565,8 +572,8 @@ textField set attrs =
                 withLeftLabel c.common.label
                     [ Html.input
                         (HA.type_ c.type_
-                            :: ifAttr c.autofocus (HA.autofocus c.autofocus)
-                            ++ ifStrAttr c.inputmode (HA.attribute "inputmode" c.inputmode)
+                            :: ifAttr c.autoFocus (HA.autofocus c.autoFocus)
+                            ++ ifStrAttr c.inputMode (HA.attribute "inputmode" c.inputMode)
                             ++ ifStrAttr c.placeholder (HA.placeholder c.placeholder)
                             ++ c.common.attrs
                             ++ valueAttrs key state
@@ -579,13 +586,59 @@ textField set attrs =
 intField : (Maybe Int -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
 intField set attrs =
     textField (String.toInt >> set)
-        (inputmode "numeric" :: attrs)
+        (inputMode "numeric" :: attrs)
 
 
 floatField : (Maybe Float -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
 floatField set attrs =
     textField (String.toFloat >> set)
-        (inputmode "decimal" :: attrs)
+        (inputMode "decimal" :: attrs)
+
+
+
+-- Textarea field
+
+
+type alias TextareaConfig out =
+    { common : Common String out
+    , autoFocus : Bool
+    , columns : Int
+    , placeholder : String
+    , rows : Int
+    }
+
+
+textareaField : (String -> out -> out) -> List (Attribute (TextareaConfig out)) -> Field out
+textareaField set attrs =
+    let
+        emptyTextConfig =
+            TextareaConfig (emptyCommon "") False 0 "" 0
+
+        c =
+            attrToConfig emptyTextConfig attrs
+    in
+    Field
+        { branch = noBranch
+        , init = Just (TargetValue c.common.default)
+        , update =
+            \_ _ event out ->
+                eventTargetValue event
+                    |> Maybe.map (\v -> set v out)
+                    |> Maybe.withDefault out
+        , view =
+            \state key ->
+                withLeftLabel c.common.label
+                    [ Html.textarea
+                        (ifAttr c.autoFocus (HA.autofocus c.autoFocus)
+                            ++ ifAttr (c.columns > 0) (HA.cols c.columns)
+                            ++ ifAttr (c.rows > 0) (HA.rows c.rows)
+                            ++ ifStrAttr c.placeholder (HA.placeholder c.placeholder)
+                            ++ c.common.attrs
+                            ++ valueAttrs key state
+                        )
+                        []
+                    ]
+        }
 
 
 
@@ -985,19 +1038,29 @@ attrToConfig zero attr =
     List.foldl (\fn acc -> fn acc) zero attr
 
 
-autofocus : Bool -> Attribute { c | autofocus : Bool }
-autofocus v o =
-    { o | autofocus = v }
+autoFocus : Bool -> Attribute { c | autoFocus : Bool }
+autoFocus v o =
+    { o | autoFocus = v }
 
 
-inputmode : String -> Attribute { c | inputmode : String }
-inputmode v o =
-    { o | inputmode = v }
+columns : Int -> Attribute { c | columns : Int }
+columns v o =
+    { o | columns = v }
+
+
+inputMode : String -> Attribute { c | inputMode : String }
+inputMode v o =
+    { o | inputMode = v }
 
 
 placeholder : String -> Attribute { c | placeholder : String }
 placeholder v o =
     { o | placeholder = v }
+
+
+rows : Int -> Attribute { c | rows : Int }
+rows v o =
+    { o | rows = v }
 
 
 type_ : String -> Attribute { c | type_ : String }
