@@ -44,16 +44,16 @@ import List.Extra as List
 import Set exposing (Set)
 
 
-type Form input output
-    = Form (List (Field input output))
+type Form out
+    = Form (List (Field out))
 
 
-type Field input output
+type Field out
     = Field
-        { branch : input -> List (Field input output)
-        , init : input -> Maybe InputEvent
-        , update : InputEvent -> Key -> Db input output -> output
-        , view : Key -> Db input output -> List (Html (Msg output))
+        { branch : List (Field out)
+        , init : Maybe InputEvent
+        , update : InputEvent -> Key -> Db out -> out
+        , view : Key -> Db out -> List (Html (Msg out))
         }
 
 
@@ -61,15 +61,15 @@ type Field input output
 -- Model
 
 
-type Model input output
-    = Model (Db input output)
+type Model out
+    = Model (Db out)
 
 
 type alias Key =
     List Int
 
 
-type alias Db input output =
+type alias Db out =
     { seenInput : Bool
     , seenBlur : Bool
     , seenSubmit : Bool
@@ -78,23 +78,22 @@ type alias Db input output =
     , changed : Set Key
     , changedSinceSubmit : Set Key
     , state : Dict Key String
-    , input : input
-    , output : output
+    , output : out
     }
 
 
-init : Form input output -> output -> input -> Model input output
-init (Form fields) emptyOut input =
+init : Form out -> out -> Model out
+init (Form fields) emptyOut =
     let
         initField (Field field) key db =
-            case field.init input of
+            case field.init of
                 Just event ->
                     updateDb event (Field field) key db
 
                 Nothing ->
                     db
     in
-    Db False False False Set.empty Set.empty Set.empty Set.empty Dict.empty input emptyOut
+    Db False False False Set.empty Set.empty Set.empty Set.empty Dict.empty emptyOut
         |> traverse initField fields []
         |> Model
 
@@ -103,7 +102,7 @@ init (Form fields) emptyOut input =
 -- Update
 
 
-type Msg output
+type Msg out
     = OnInput Key InputEvent
     | OnBlur Key
     | OnSubmit
@@ -114,7 +113,7 @@ type InputEvent
     | TargetChecked String Bool
 
 
-update : Form input output -> Msg output -> Model input output -> Model input output
+update : Form out -> Msg out -> Model out -> Model out
 update (Form fields) msg (Model db) =
     case msg of
         OnInput key event ->
@@ -131,7 +130,7 @@ update (Form fields) msg (Model db) =
             Model { db | seenInput = True, seenSubmit = True }
 
 
-updateDb : InputEvent -> Field input output -> Key -> Db input output -> Db input output
+updateDb : InputEvent -> Field out -> Key -> Db out -> Db out
 updateDb event (Field field) key db =
     { db
       -- Touched / changed
@@ -189,10 +188,10 @@ boolValue =
 
 
 onSubmit :
-    (Db input output -> Bool)
-    -> (model -> output -> ( model, Cmd msg ))
-    -> (Model input output -> model)
-    -> Model input output
+    (Db out -> Bool)
+    -> (model -> out -> ( model, Cmd msg ))
+    -> (Model out -> model)
+    -> Model out
     -> ( model, Cmd msg )
 onSubmit seen next setter (Model db) =
     let
@@ -214,17 +213,17 @@ onSubmit seen next setter (Model db) =
         ( setter (Model db), Cmd.none )
 
 
-autoSubmit : (model -> output -> ( model, Cmd msg )) -> (Model input output -> model) -> Model input output -> ( model, Cmd msg )
+autoSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
 autoSubmit =
     onSubmit .seenInput
 
 
-submitOnBlur : (model -> output -> ( model, Cmd msg )) -> (Model input output -> model) -> Model input output -> ( model, Cmd msg )
+submitOnBlur : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
 submitOnBlur =
     onSubmit .seenBlur
 
 
-onFormSubmit : (model -> output -> ( model, Cmd msg )) -> (Model input output -> model) -> Model input output -> ( model, Cmd msg )
+onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
 onFormSubmit =
     onSubmit .seenSubmit
 
@@ -233,7 +232,7 @@ onFormSubmit =
 -- View
 
 
-view : (Msg output -> msg) -> Form input output -> String -> Model input output -> Html msg
+view : (Msg out -> msg) -> Form out -> String -> Model out -> Html msg
 view toMsg (Form fields) id (Model db) =
     viewFields fields [] db
         |> (::) (stylesheet id)
@@ -258,18 +257,18 @@ stylesheet formId =
         |> Html.node "style" []
 
 
-viewFields : List (Field input output) -> Key -> Db input output -> List (Html (Msg output))
+viewFields : List (Field out) -> Key -> Db out -> List (Html (Msg out))
 viewFields fields prefix db =
     let
         viewField i (Field field) =
-            fieldDiv
+            divField
                 (field.view (List.append prefix [ i ]) db)
     in
     List.indexedMap viewField fields
 
 
-fieldDiv : List (Html (Msg output)) -> Html (Msg output)
-fieldDiv =
+divField : List (Html (Msg out)) -> Html (Msg out)
+divField =
     Html.div [ HA.class "field" ]
 
 
@@ -277,17 +276,17 @@ fieldDiv =
 -- Creating a form
 
 
-empty : Form input output
+empty : Form out
 empty =
     Form []
 
 
-append : Field input output -> Form input output -> Form input output
+append : Field out -> Form out -> Form out
 append field (Form fields) =
     Form (fields ++ [ field ])
 
 
-appendIf : Bool -> Field input output -> Form input output -> Form input output
+appendIf : Bool -> Field out -> Form out -> Form out
 appendIf on field form =
     if on then
         append field form
@@ -300,12 +299,7 @@ appendIf on field form =
 -- Using a form (internally)
 
 
-traverse :
-    (Field input output -> Key -> Db input output -> Db input output)
-    -> List (Field input output)
-    -> Key
-    -> Db input output
-    -> Db input output
+traverse : (Field out -> Key -> Db out -> Db out) -> List (Field out) -> Key -> Db out -> Db out
 traverse cb fields key db =
     List.foldl
         (\(Field field) ( i, acc2 ) ->
@@ -315,7 +309,7 @@ traverse cb fields key db =
             in
             ( i + 1
             , cb (Field field) nextKey acc2
-                |> traverse cb (field.branch db.input) nextKey
+                |> traverse cb field.branch nextKey
             )
         )
         ( 0, db )
@@ -323,7 +317,7 @@ traverse cb fields key db =
         |> Tuple.second
 
 
-getField : List (Field input output) -> Db input output -> Key -> Field input output
+getField : List (Field out) -> Db out -> Key -> Field out
 getField fields db key =
     List.head key
         |> Maybe.andThen (\i -> List.getAt i fields)
@@ -336,7 +330,7 @@ getField fields db key =
 
                     -- Recurse deeper
                     rem ->
-                        getField (field.branch db.input) db rem
+                        getField field.branch db rem
             )
         |> Maybe.withDefault emptyField
 
@@ -345,7 +339,7 @@ getField fields db key =
 -- Creating fields
 
 
-emptyField : Field input output
+emptyField : Field out
 emptyField =
     Field
         { branch = noBranch
@@ -355,17 +349,17 @@ emptyField =
         }
 
 
-noBranch : input -> List (Field input output)
-noBranch _ =
+noBranch : List (Field out)
+noBranch =
     []
 
 
-noInit : input -> Maybe InputEvent
-noInit _ =
+noInit : Maybe InputEvent
+noInit =
     Nothing
 
 
-noUpdate : InputEvent -> Key -> Db input output -> output
+noUpdate : InputEvent -> Key -> Db out -> out
 noUpdate _ _ db =
     db.output
 
@@ -385,7 +379,7 @@ targetCheckedDecoder =
     JD.map2 TargetChecked HE.targetValue HE.targetChecked
 
 
-valueAttrs : Key -> Db input output -> List (Html.Attribute (Msg output))
+valueAttrs : Key -> Db out -> List (Html.Attribute (Msg out))
 valueAttrs key db =
     [ HE.stopPropagationOn "input"
         (JD.map
@@ -398,7 +392,7 @@ valueAttrs key db =
     ]
 
 
-checkedAttrs : JD.Decoder InputEvent -> Key -> String -> Db input output -> List (Html.Attribute (Msg output))
+checkedAttrs : JD.Decoder InputEvent -> Key -> String -> Db output -> List (Html.Attribute (Msg output))
 checkedAttrs eventDecoder key value db =
     [ HE.stopPropagationOn "input"
         (JD.map
@@ -448,7 +442,7 @@ type alias FieldState =
     }
 
 
-fieldState : Key -> Model input output -> FieldState
+fieldState : Key -> Model output -> FieldState
 fieldState key (Model db) =
     { value = Dict.get key db.state
     , touched = Set.member key db.touched
@@ -462,8 +456,8 @@ fieldState key (Model db) =
 -- Text fields
 
 
-type alias TextConfig input output =
-    { common : Common input String output
+type alias TextConfig output =
+    { common : Common String output
     , autofocus : Bool
     , inputmode : String
     , placeholder : String
@@ -471,7 +465,7 @@ type alias TextConfig input output =
     }
 
 
-inputField : (String -> output -> output) -> List (Attribute (TextConfig input output)) -> Field input output
+inputField : (String -> output -> output) -> List (Attribute (TextConfig output)) -> Field output
 inputField set attrs =
     let
         emptyTextConfig =
@@ -482,7 +476,7 @@ inputField set attrs =
     in
     Field
         { branch = noBranch
-        , init = c.common.default >> TargetValue >> Just
+        , init = Just (TargetValue c.common.default)
         , update =
             \event _ db ->
                 eventTargetValue event
@@ -505,12 +499,12 @@ inputField set attrs =
 -- Checkbox field
 
 
-type alias CheckedConfig input output =
-    { common : Common input Bool output
+type alias CheckedConfig output =
+    { common : Common Bool output
     }
 
 
-checkboxField : (Bool -> output -> output) -> List (Attribute (CheckedConfig input output)) -> Field input output
+checkboxField : (Bool -> output -> output) -> List (Attribute (CheckedConfig output)) -> Field output
 checkboxField set attrs =
     let
         c =
@@ -518,7 +512,7 @@ checkboxField set attrs =
     in
     Field
         { branch = noBranch
-        , init = c.common.default >> TargetChecked boolValue >> Just
+        , init = Just (TargetChecked boolValue c.common.default)
         , update =
             \event _ db ->
                 eventTargetChecked event
@@ -542,41 +536,38 @@ checkboxField set attrs =
 -- Radio field
 
 
-type alias OptionConfig input option output =
-    { common : Common input option output
+type alias OptionConfig option output =
+    { common : Common option output
     , nothing : Maybe String
     }
 
 
-emptyOptionConfig : OptionConfig input (Maybe option) output
+emptyOptionConfig : OptionConfig (Maybe option) output
 emptyOptionConfig =
     OptionConfig (emptyCommon Nothing) Nothing
 
 
-type alias OptionArgs input option output =
+type alias OptionArgs option output =
     { set : Maybe option -> output -> output
     , toString : option -> String
-    , options : input -> List option
-    , attributes : List (Attribute (OptionConfig input (Maybe option) output))
+    , options : List option
+    , attributes : List (Attribute (OptionConfig (Maybe option) output))
     }
 
 
-optionInit : (option -> String) -> (value -> Maybe option) -> value -> Maybe InputEvent
-optionInit toString def input =
-    def input |> Maybe.map (toString >> TargetValue)
+optionInit : (option -> String) -> Maybe option -> Maybe InputEvent
+optionInit toString def =
+    Maybe.map (toString >> TargetValue) def
 
 
-optionUpdate :
-    OptionArgs input option output
-    -> OptionConfig input (Maybe option) output
-    -> InputEvent
-    -> Key
-    -> Db input output
-    -> output
-optionUpdate args c event _ db =
+optionUpdate : OptionArgs option output -> InputEvent -> Key -> Db output -> output
+optionUpdate args event _ db =
     let
+        c =
+            attrToConfig emptyOptionConfig args.attributes
+
         findOption value =
-            availableOptions args.options c db
+            availableOptions c.nothing args.options
                 |> List.map (\opt -> ( optionToString args.toString c.nothing opt, opt ))
                 |> List.find (\( check, _ ) -> check == value)
                 |> Maybe.map Tuple.second
@@ -593,23 +584,23 @@ optionToString toString none m =
         |> Maybe.withDefault (Maybe.withDefault "" none)
 
 
-availableOptions : (input -> List option) -> OptionConfig input (Maybe option) output -> Db input output -> List (Maybe option)
-availableOptions get c db =
+availableOptions : Maybe String -> List option -> List (Maybe option)
+availableOptions none options =
     let
         -- Wrap all options in a Maybe
-        opts =
-            List.map Just (get db.input)
+        options2 =
+            List.map Just options
     in
     -- If we're displaying a none option, add Nothing
-    case c.nothing of
+    case none of
         Just _ ->
-            Nothing :: opts
+            Nothing :: options2
 
         Nothing ->
-            opts
+            options2
 
 
-radioField : OptionArgs input option output -> Field input output
+radioField : OptionArgs option output -> Field output
 radioField args =
     let
         c =
@@ -628,14 +619,14 @@ radioField args =
     Field
         { branch = noBranch
         , init = optionInit args.toString c.common.default
-        , update = optionUpdate args c
+        , update = optionUpdate args
         , view =
             \key db ->
                 withLeftElement (Html.div [])
                     c.common.label
-                    (availableOptions args.options c db
+                    (availableOptions c.nothing args.options
                         |> List.map (optionToString args.toString c.nothing >> control key db)
-                        |> List.map fieldDiv
+                        |> List.map divField
                     )
         }
 
@@ -644,7 +635,7 @@ radioField args =
 -- Select field
 
 
-selectField : OptionArgs input option output -> Field input output
+selectField : OptionArgs option output -> Field output
 selectField args =
     let
         c =
@@ -666,11 +657,11 @@ selectField args =
     Field
         { branch = noBranch
         , init = optionInit args.toString c.common.default
-        , update = optionUpdate args c
+        , update = optionUpdate args
         , view =
             \key db ->
                 withLeftLabel c.common.label
-                    [ availableOptions args.options c db
+                    [ availableOptions c.nothing args.options
                         |> List.map (optionToString args.toString c.nothing >> optionEl key db)
                         |> Html.select (selectAttrs key)
                     ]
@@ -681,27 +672,80 @@ selectField args =
 -- Checkboxes field
 
 
-type alias CheckboxesConfig input option output =
-    { common : Common input option output
+type alias CheckboxesConfig option output =
+    { common : Common option output
     }
 
 
-type alias CheckboxesArgs input option output =
+type alias CheckboxesArgs option output =
     { set : List option -> output -> output
     , toString : option -> String
-    , options : input -> List option
-    , attributes : List (Attribute (CheckboxesConfig input (List option) output))
+    , options : List option
+    , attributes : List (Attribute (CheckboxesConfig (List option) output))
     }
 
 
-checkboxesField : CheckboxesArgs input option output -> Field input output
+checkboxesField : CheckboxesArgs option output -> Field output
 checkboxesField args =
     let
         c =
             attrToConfig (CheckboxesConfig (emptyCommon [])) args.attributes
 
-        innerFields input =
-            List.map (optionCheckbox args) (args.options input)
+        allOptions =
+            args.options
+                |> List.map (\selOpt -> ( args.toString selOpt, selOpt ))
+                |> Dict.fromList
+
+        innerFields =
+            List.map checkbox args.options
+
+        checkbox opt =
+            let
+                value =
+                    args.toString opt
+            in
+            Field
+                { branch = noBranch
+                , init =
+                    if List.member opt c.common.default then
+                        Just (TargetChecked value True)
+
+                    else
+                        Nothing
+                , update =
+                    \event key db ->
+                        let
+                            prefix =
+                                List.unconsLast key
+                                    |> Maybe.map Tuple.second
+                                    |> Maybe.withDefault []
+
+                            activeOptions =
+                                db.state
+                                    |> Dict.filter (\dbKey _ -> List.isPrefixOf prefix dbKey)
+                                    |> Dict.values
+                                    |> List.filterMap (\id -> Dict.get id allOptions)
+
+                            newOptions =
+                                case eventTargetChecked event of
+                                    Just ( _, True ) ->
+                                        opt :: activeOptions
+
+                                    _ ->
+                                        List.filter ((/=) opt) activeOptions
+                        in
+                        args.set newOptions db.output
+                , view =
+                    \key db ->
+                        withRightLabel [ Html.text value ]
+                            [ Html.input
+                                (HA.type_ "checkbox"
+                                    :: c.common.attrs
+                                    ++ checkedAttrs targetCheckedDecoder key value db
+                                )
+                                []
+                            ]
+                }
     in
     Field
         { branch = innerFields
@@ -710,66 +754,7 @@ checkboxesField args =
         , view =
             \key db ->
                 withLeftLabel c.common.label
-                    (viewFields (innerFields db.input) key db)
-        }
-
-
-optionCheckbox : CheckboxesArgs input option output -> option -> Field input output
-optionCheckbox args opt =
-    let
-        c =
-            attrToConfig (CheckboxesConfig (emptyCommon [])) args.attributes
-
-        value =
-            args.toString opt
-    in
-    Field
-        { branch = noBranch
-        , init =
-            \input ->
-                if List.member opt (c.common.default input) then
-                    Just (TargetChecked value True)
-
-                else
-                    Nothing
-        , update =
-            \event key db ->
-                let
-                    allOptions =
-                        args.options db.input
-                            |> List.map (\selOpt -> ( args.toString selOpt, selOpt ))
-                            |> Dict.fromList
-
-                    prefix =
-                        List.unconsLast key
-                            |> Maybe.map Tuple.second
-                            |> Maybe.withDefault []
-
-                    activeOptions =
-                        db.state
-                            |> Dict.filter (\dbKey _ -> List.isPrefixOf prefix dbKey)
-                            |> Dict.values
-                            |> List.filterMap (\id -> Dict.get id allOptions)
-
-                    newOptions =
-                        case eventTargetChecked event of
-                            Just ( _, True ) ->
-                                opt :: activeOptions
-
-                            _ ->
-                                List.filter ((/=) opt) activeOptions
-                in
-                args.set newOptions db.output
-        , view =
-            \key db ->
-                withRightLabel [ Html.text value ]
-                    [ Html.input
-                        (HA.type_ "checkbox"
-                            :: c.common.attrs
-                            ++ checkedAttrs targetCheckedDecoder key value db
-                        )
-                        []
-                    ]
+                    (viewFields innerFields key db)
         }
 
 
@@ -777,35 +762,35 @@ optionCheckbox args opt =
 -- Grouping (nested: Form to Field) fields
 
 
-row : Form input output -> Field input output
+row : Form output -> Field output
 row form =
     groupClassField "row" form
 
 
-column : Form input output -> Field input output
+column : Form output -> Field output
 column form =
     groupClassField "column" form
 
 
-groupClassField : String -> Form input output -> Field input output
+groupClassField : String -> Form output -> Field output
 groupClassField groupClass (Form fields) =
     groupField (\inner -> [ Html.div [ HA.class groupClass ] inner ]) fields
 
 
-groupField : (List (Html (Msg output)) -> List (Html (Msg output))) -> List (Field input output) -> Field input output
+groupField : (List (Html (Msg output)) -> List (Html (Msg output))) -> List (Field output) -> Field output
 groupField wrapper fields =
     Field
-        { branch = always fields
+        { branch = fields
         , init = noInit
         , update = noUpdate
         , view = \key db -> wrapper (viewFields fields key db)
         }
 
 
-fieldset : String -> Form input output -> Field input output
+fieldset : String -> Form output -> Field output
 fieldset title (Form fields) =
     Field
-        { branch = always fields
+        { branch = fields
         , init = noInit
         , update = noUpdate
         , view =
@@ -822,12 +807,12 @@ fieldset title (Form fields) =
 -- HTML fields
 
 
-submit : String -> Field input output
+submit : String -> Field output
 submit l =
     htmlField [ Html.button [ HA.type_ "submit" ] [ Html.text l ] ]
 
 
-htmlField : List (Html (Msg output)) -> Field input output
+htmlField : List (Html (Msg output)) -> Field output
 htmlField raw =
     Field
         { branch = noBranch
@@ -841,53 +826,53 @@ htmlField raw =
 -- Common field
 
 
-type alias Common input value output =
+type alias Common value output =
     { attrs : List (Html.Attribute (Msg output))
-    , default : input -> value
+    , default : value
     , label : List (Html (Msg output))
     }
 
 
-emptyCommon : value -> Common input value output
+emptyCommon : value -> Common value output
 emptyCommon emptyDef =
-    Common [] (\_ -> emptyDef) []
+    Common [] emptyDef []
 
 
-type alias WithCommon a input value output =
-    { a | common : Common input value output }
+type alias WithCommon a value output =
+    { a | common : Common value output }
 
 
-withCommon : (Common i v o -> Common i v o) -> WithCommon a i v o -> WithCommon a i v o
+withCommon : (Common v o -> Common v o) -> WithCommon a v o -> WithCommon a v o
 withCommon set o =
     { o | common = set o.common }
 
 
-label : List (Html (Msg output)) -> Attribute (WithCommon c input value output)
+label : List (Html (Msg output)) -> Attribute (WithCommon c value output)
 label v =
     withCommon (\c -> { c | label = v })
 
 
-textLabel : String -> Attribute (WithCommon c input value output)
+textLabel : String -> Attribute (WithCommon c value output)
 textLabel str =
     label [ Html.text str ]
 
 
-htmlAttribute : Html.Attribute (Msg output) -> Attribute (WithCommon c input value output)
+htmlAttribute : Html.Attribute (Msg output) -> Attribute (WithCommon c value output)
 htmlAttribute attr =
     withCommon (\c -> { c | attrs = c.attrs ++ [ attr ] })
 
 
-controlId : String -> Attribute (WithCommon c input value output)
+controlId : String -> Attribute (WithCommon c value output)
 controlId =
     HA.id >> htmlAttribute
 
 
-class : String -> Attribute (WithCommon c input value output)
+class : String -> Attribute (WithCommon c value output)
 class =
     HA.class >> htmlAttribute
 
 
-default : (input -> value) -> Attribute (WithCommon c input value output)
+default : value -> Attribute (WithCommon c value output)
 default get =
     withCommon (\c -> { c | default = get })
 

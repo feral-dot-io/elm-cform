@@ -16,32 +16,15 @@ main =
         }
 
 
-type alias Input =
-    { myText : String
-    , myCheckbox : Bool
-    , myRadio : Animal
-    , mySelect : Maybe Animal
-    , myCheckboxes : List Animal
-    }
-
-
 type alias Model =
-    { form : Form.Model Input Example
+    { form : Form.Model Example
     , submitted : List Example
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { form =
-            Form.init exampleForm
-                emptyExample
-                { myText = "Hello world"
-                , myCheckbox = True
-                , myRadio = Zebra
-                , mySelect = Nothing
-                , myCheckboxes = [ Dog, Zebra ]
-                }
+    ( { form = Form.init exampleForm emptyExample
       , submitted = []
       }
     , Cmd.none
@@ -80,7 +63,7 @@ view m =
 -- Building our composable form
 
 
-exampleForm : Form Input Example
+exampleForm : Form Example
 exampleForm =
     let
         animals =
@@ -89,23 +72,23 @@ exampleForm =
         myTextField =
             Form.inputField (\v d -> { d | myText = v })
                 [ Form.textLabel "myText"
-                , Form.default .myText
+                , Form.default "Hello world"
                 ]
 
         myCheckboxField =
             Form.checkboxField (\v d -> { d | myCheckbox = v })
                 [ Form.textLabel "myCheckbox"
-                , Form.default .myCheckbox
+                , Form.default True
                 ]
 
         myRadioField =
             Form.radioField
                 { set = \v d -> { d | myRadio = v }
                 , toString = animalToString
-                , options = always animals
+                , options = animals
                 , attributes =
                     [ Form.textLabel "myRadio"
-                    , Form.default (.myRadio >> Just)
+                    , Form.default (Just Zebra)
                     , Form.nothingOption "none"
                     ]
                 }
@@ -114,10 +97,9 @@ exampleForm =
             Form.selectField
                 { set = \v d -> { d | mySelect = v }
                 , toString = animalToString
-                , options = always animals
+                , options = animals
                 , attributes =
                     [ Form.textLabel "mySelect"
-                    , Form.default .mySelect
                     , Form.nothingOption "Nothing selected"
                     ]
                 }
@@ -126,10 +108,10 @@ exampleForm =
             Form.checkboxesField
                 { set = \v d -> { d | myCheckboxes = v }
                 , toString = animalToString
-                , options = always animals
+                , options = animals
                 , attributes =
                     [ Form.textLabel "myCheckboxes"
-                    , Form.default .myCheckboxes
+                    , Form.default [ Dog, Zebra ]
                     ]
                 }
     in
