@@ -14,10 +14,12 @@ module Form exposing
     , default
     , empty
     , fieldset
+    , floatField
     , htmlAttribute
     , htmlField
     , init
     , inputmode
+    , intField
     , label
     , nothingOption
     , onFormSubmit
@@ -515,6 +517,18 @@ textField set attrs =
                         []
                     ]
         }
+
+
+intField : (Maybe Int -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
+intField set attrs =
+    textField (String.toInt >> set)
+        (inputmode "numeric" :: attrs)
+
+
+floatField : (Maybe Float -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
+floatField set attrs =
+    textField (String.toFloat >> set)
+        (inputmode "decimal" :: attrs)
 
 
 
