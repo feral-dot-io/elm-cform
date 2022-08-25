@@ -24,7 +24,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { form = Form.init emptyExample exampleForm
+    ( { form = Form.init emptyExample
       , submitted = []
       }
     , Cmd.none
