@@ -392,7 +392,7 @@ valueAttrs key db =
     ]
 
 
-checkedAttrs : JD.Decoder InputEvent -> Key -> String -> Db output -> List (Html.Attribute (Msg output))
+checkedAttrs : JD.Decoder InputEvent -> Key -> String -> Db out -> List (Html.Attribute (Msg out))
 checkedAttrs eventDecoder key value db =
     [ HE.stopPropagationOn "input"
         (JD.map
@@ -442,7 +442,7 @@ type alias FieldState =
     }
 
 
-fieldState : Key -> Model output -> FieldState
+fieldState : Key -> Model out -> FieldState
 fieldState key (Model db) =
     { value = Dict.get key db.state
     , touched = Set.member key db.touched
@@ -456,8 +456,8 @@ fieldState key (Model db) =
 -- Text fields
 
 
-type alias TextConfig output =
-    { common : Common String output
+type alias TextConfig out =
+    { common : Common String out
     , autofocus : Bool
     , inputmode : String
     , placeholder : String
@@ -465,7 +465,7 @@ type alias TextConfig output =
     }
 
 
-inputField : (String -> output -> output) -> List (Attribute (TextConfig output)) -> Field output
+inputField : (String -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
 inputField set attrs =
     let
         emptyTextConfig =
@@ -499,12 +499,12 @@ inputField set attrs =
 -- Checkbox field
 
 
-type alias CheckedConfig output =
-    { common : Common Bool output
+type alias CheckedConfig out =
+    { common : Common Bool out
     }
 
 
-checkboxField : (Bool -> output -> output) -> List (Attribute (CheckedConfig output)) -> Field output
+checkboxField : (Bool -> out -> out) -> List (Attribute (CheckedConfig out)) -> Field out
 checkboxField set attrs =
     let
         c =
@@ -536,22 +536,22 @@ checkboxField set attrs =
 -- Radio field
 
 
-type alias OptionConfig option output =
-    { common : Common option output
+type alias OptionConfig option out =
+    { common : Common option out
     , nothing : Maybe String
     }
 
 
-emptyOptionConfig : OptionConfig (Maybe option) output
+emptyOptionConfig : OptionConfig (Maybe option) out
 emptyOptionConfig =
     OptionConfig (emptyCommon Nothing) Nothing
 
 
-type alias OptionArgs option output =
-    { set : Maybe option -> output -> output
+type alias OptionArgs option out =
+    { set : Maybe option -> out -> out
     , toString : option -> String
     , options : List option
-    , attributes : List (Attribute (OptionConfig (Maybe option) output))
+    , attributes : List (Attribute (OptionConfig (Maybe option) out))
     }
 
 
@@ -560,7 +560,7 @@ optionInit toString def =
     Maybe.map (toString >> TargetValue) def
 
 
-optionUpdate : OptionArgs option output -> InputEvent -> Key -> Db output -> output
+optionUpdate : OptionArgs option out -> InputEvent -> Key -> Db out -> out
 optionUpdate args event _ db =
     let
         c =
@@ -600,7 +600,7 @@ availableOptions none options =
             options2
 
 
-radioField : OptionArgs option output -> Field output
+radioField : OptionArgs option out -> Field out
 radioField args =
     let
         c =
@@ -635,7 +635,7 @@ radioField args =
 -- Select field
 
 
-selectField : OptionArgs option output -> Field output
+selectField : OptionArgs option out -> Field out
 selectField args =
     let
         c =
@@ -672,20 +672,20 @@ selectField args =
 -- Checkboxes field
 
 
-type alias CheckboxesConfig option output =
-    { common : Common option output
+type alias CheckboxesConfig option out =
+    { common : Common option out
     }
 
 
-type alias CheckboxesArgs option output =
-    { set : List option -> output -> output
+type alias CheckboxesArgs option out =
+    { set : List option -> out -> out
     , toString : option -> String
     , options : List option
-    , attributes : List (Attribute (CheckboxesConfig (List option) output))
+    , attributes : List (Attribute (CheckboxesConfig (List option) out))
     }
 
 
-checkboxesField : CheckboxesArgs option output -> Field output
+checkboxesField : CheckboxesArgs option out -> Field out
 checkboxesField args =
     let
         c =
@@ -753,7 +753,8 @@ checkboxesField args =
         , update = noUpdate
         , view =
             \key db ->
-                withLeftLabel c.common.label
+                withLeftElement (Html.div [])
+                    c.common.label
                     (viewFields innerFields key db)
         }
 
@@ -762,22 +763,22 @@ checkboxesField args =
 -- Grouping (nested: Form to Field) fields
 
 
-row : Form output -> Field output
+row : Form out -> Field out
 row form =
     groupClassField "row" form
 
 
-column : Form output -> Field output
+column : Form out -> Field out
 column form =
     groupClassField "column" form
 
 
-groupClassField : String -> Form output -> Field output
+groupClassField : String -> Form out -> Field out
 groupClassField groupClass (Form fields) =
     groupField (\inner -> [ Html.div [ HA.class groupClass ] inner ]) fields
 
 
-groupField : (List (Html (Msg output)) -> List (Html (Msg output))) -> List (Field output) -> Field output
+groupField : (List (Html (Msg out)) -> List (Html (Msg out))) -> List (Field out) -> Field out
 groupField wrapper fields =
     Field
         { branch = fields
@@ -787,7 +788,7 @@ groupField wrapper fields =
         }
 
 
-fieldset : String -> Form output -> Field output
+fieldset : String -> Form out -> Field out
 fieldset title (Form fields) =
     Field
         { branch = fields
@@ -807,12 +808,12 @@ fieldset title (Form fields) =
 -- HTML fields
 
 
-submit : String -> Field output
+submit : String -> Field out
 submit l =
     htmlField [ Html.button [ HA.type_ "submit" ] [ Html.text l ] ]
 
 
-htmlField : List (Html (Msg output)) -> Field output
+htmlField : List (Html (Msg out)) -> Field out
 htmlField raw =
     Field
         { branch = noBranch
@@ -826,20 +827,20 @@ htmlField raw =
 -- Common field
 
 
-type alias Common value output =
-    { attrs : List (Html.Attribute (Msg output))
+type alias Common value out =
+    { attrs : List (Html.Attribute (Msg out))
     , default : value
-    , label : List (Html (Msg output))
+    , label : List (Html (Msg out))
     }
 
 
-emptyCommon : value -> Common value output
+emptyCommon : value -> Common value out
 emptyCommon emptyDef =
     Common [] emptyDef []
 
 
-type alias WithCommon a value output =
-    { a | common : Common value output }
+type alias WithCommon a value out =
+    { a | common : Common value out }
 
 
 withCommon : (Common v o -> Common v o) -> WithCommon a v o -> WithCommon a v o
@@ -847,32 +848,32 @@ withCommon set o =
     { o | common = set o.common }
 
 
-label : List (Html (Msg output)) -> Attribute (WithCommon c value output)
+label : List (Html (Msg out)) -> Attribute (WithCommon c value out)
 label v =
     withCommon (\c -> { c | label = v })
 
 
-textLabel : String -> Attribute (WithCommon c value output)
+textLabel : String -> Attribute (WithCommon c value out)
 textLabel str =
     label [ Html.text str ]
 
 
-htmlAttribute : Html.Attribute (Msg output) -> Attribute (WithCommon c value output)
+htmlAttribute : Html.Attribute (Msg out) -> Attribute (WithCommon c value out)
 htmlAttribute attr =
     withCommon (\c -> { c | attrs = c.attrs ++ [ attr ] })
 
 
-controlId : String -> Attribute (WithCommon c value output)
+controlId : String -> Attribute (WithCommon c value out)
 controlId =
     HA.id >> htmlAttribute
 
 
-class : String -> Attribute (WithCommon c value output)
+class : String -> Attribute (WithCommon c value out)
 class =
     HA.class >> htmlAttribute
 
 
-default : value -> Attribute (WithCommon c value output)
+default : value -> Attribute (WithCommon c value out)
 default get =
     withCommon (\c -> { c | default = get })
 
