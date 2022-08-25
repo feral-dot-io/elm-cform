@@ -82,8 +82,8 @@ type alias Db out =
     }
 
 
-init : Form out -> out -> Model out
-init (Form fields) emptyOut =
+init : out -> Form out -> Model out
+init emptyOut (Form fields) =
     let
         initField (Field field) key db =
             case field.init of
@@ -113,8 +113,8 @@ type InputEvent
     | TargetChecked String Bool
 
 
-update : Form out -> Msg out -> Model out -> Model out
-update (Form fields) msg (Model db) =
+update : Msg out -> Model out -> Form out -> Model out
+update msg (Model db) (Form fields) =
     case msg of
         OnInput key event ->
             let
@@ -232,8 +232,8 @@ onFormSubmit =
 -- View
 
 
-view : (Msg out -> msg) -> Form out -> String -> Model out -> Html msg
-view toMsg (Form fields) id (Model db) =
+view : (Msg out -> msg) -> String -> Model out -> Form out -> Html msg
+view toMsg id (Model db) (Form fields) =
     viewFields fields [] db
         |> (::) (stylesheet id)
         |> Html.form
