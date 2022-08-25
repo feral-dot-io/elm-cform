@@ -28,7 +28,7 @@ module Form exposing
     , row
     , selectField
     , submit
-    , submitOnBlur
+    , submitOnChange
     , textField
     , textLabel
     , type_
@@ -77,10 +77,10 @@ type alias State =
 
 type alias Db out =
     { seenInput : Bool
-    , seenBlur : Bool
+    , seenChange : Bool
     , seenSubmit : Bool
-    , touched : Set Key
-    , touchedSinceSubmit : Set Key
+    , visited : Set Key
+    , visitedSinceSubmit : Set Key
     , changed : Set Key
     , changedSinceSubmit : Set Key
     , state : State
@@ -120,6 +120,8 @@ applyInit (Form fields) db =
 
 type Msg out
     = OnInput Key InputEvent
+    | OnChange Key
+    | OnInputAndChange Key InputEvent
     | OnBlur Key
     | OnSubmit
 
@@ -137,13 +139,23 @@ update msg (Model db0) form =
     in
     case msg of
         OnInput key event ->
-            Model (updateDb form key event { db | seenInput = True })
+            { db | seenInput = True }
+                |> updateDb form key event
+                |> Model
 
-        OnBlur _ ->
-            Model { db | seenBlur = True }
+        OnChange key ->
+            Model (visitedField key { db | seenChange = True })
+
+        OnInputAndChange key event ->
+            { db | seenInput = True, seenChange = True }
+                |> updateDb form key event
+                |> Model
+
+        OnBlur key ->
+            Model (visitedField key db)
 
         OnSubmit ->
-            Model { db | seenInput = True, seenSubmit = True }
+            Model { db | seenInput = True, seenChange = True, seenSubmit = True }
 
 
 updateDb : Form out -> Key -> InputEvent -> Db out -> Db out
@@ -153,15 +165,27 @@ updateDb (Form fields) key event db =
             getField fields db key
     in
     { db
-      -- Touched / changed
-        | touched = Set.insert key db.touched
-        , touchedSinceSubmit = Set.insert key db.touchedSinceSubmit
-        , changed = Set.insert key db.changed
-        , changedSinceSubmit = Set.insert key db.changedSinceSubmit
-
-        -- State change
-        , state = updateDbState key event db.state
+      -- State change
+        | state = updateDbState key event db.state
         , output = field.update db.state key event db.output
+    }
+        |> visitedField key
+        |> changedField key
+
+
+visitedField : Key -> Db out -> Db out
+visitedField key db =
+    { db
+        | visited = Set.insert key db.visited
+        , visitedSinceSubmit = Set.insert key db.visitedSinceSubmit
+    }
+
+
+changedField : Key -> Db out -> Db out
+changedField key db =
+    { db
+        | changed = Set.insert key db.visited
+        , changedSinceSubmit = Set.insert key db.visitedSinceSubmit
     }
 
 
@@ -218,9 +242,9 @@ onSubmit seen next setter (Model db) =
         resetDb =
             { db
                 | seenInput = False
-                , seenBlur = False
+                , seenChange = False
                 , seenSubmit = False
-                , touchedSinceSubmit = Set.empty
+                , visitedSinceSubmit = Set.empty
                 , changedSinceSubmit = Set.empty
             }
     in
@@ -238,9 +262,9 @@ autoSubmit =
     onSubmit .seenInput
 
 
-submitOnBlur : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
-submitOnBlur =
-    onSubmit .seenBlur
+submitOnChange : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
+submitOnChange =
+    onSubmit .seenChange
 
 
 onFormSubmit : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
@@ -417,6 +441,7 @@ valueAttrs key state =
             (\event -> ( OnInput key event, True ))
             targetValueDecoder
         )
+    , HE.onChange (\_ -> OnChange key)
     , HE.onBlur (OnBlur key)
     , HA.name (keyToString key)
     , HA.value (Dict.get key state |> Maybe.withDefault "")
@@ -427,13 +452,21 @@ checkedAttrs : JD.Decoder InputEvent -> Key -> String -> State -> List (Html.Att
 checkedAttrs eventDecoder key value state =
     [ HE.stopPropagationOn "input"
         (JD.map
-            (\event -> ( OnInput key event, True ))
+            (\event -> ( OnInputAndChange key event, True ))
             eventDecoder
         )
     , HE.onBlur (OnBlur key)
     , HA.name (keyToString key)
     , HA.value value
     , HA.checked (Dict.get key state == Just value)
+    ]
+
+
+selectAttrs : Key -> List (Html.Attribute (Msg out))
+selectAttrs key =
+    [ HE.on "change" (JD.map (OnInputAndChange key) targetValueDecoder)
+    , HE.onBlur (OnBlur key)
+    , HA.name (keyToString key)
     ]
 
 
@@ -480,8 +513,8 @@ type alias FieldState =
 fieldState : Key -> Model out -> FieldState
 fieldState key (Model db) =
     { value = Dict.get key db.state
-    , touched = Set.member key db.touched
-    , touchedSinceSubmit = Set.member key db.touchedSinceSubmit
+    , touched = Set.member key db.visited
+    , touchedSinceSubmit = Set.member key db.visitedSinceSubmit
     , changed = Set.member key db.changed
     , changedSinceSubmit = Set.member key db.changedSinceSubmit
     }
@@ -700,12 +733,6 @@ selectField args =
     let
         c =
             attrToConfig emptyOptionConfig args.attributes
-
-        selectAttrs key =
-            [ HE.on "change" (JD.map (OnInput key) targetValueDecoder)
-            , HE.onBlur (OnBlur key)
-            , HA.name (keyToString key)
-            ]
 
         optionEl key state value =
             Html.option

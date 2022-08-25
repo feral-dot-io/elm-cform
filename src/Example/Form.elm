@@ -41,7 +41,7 @@ update msg model =
     case msg of
         FormMsg formMsg ->
             Form.update formMsg model.form exampleForm
-                |> Form.autoSubmit onSubmit (\f -> { model | form = f })
+                |> Form.submitOnChange onSubmit (\f -> { model | form = f })
 
 
 onSubmit : Model -> Example -> ( Model, Cmd Msg )
