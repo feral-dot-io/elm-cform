@@ -1,0 +1,8 @@
+{
+    "name": "feral-dot-io/elm-cform",
+    "summary": "Composable forms",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Form"
+    ]
+}

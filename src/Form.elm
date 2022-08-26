@@ -1,43 +1,56 @@
 module Form exposing
-    ( Form
-    , Model
-    , Msg
-    , append
-    , appendIf
-    , autoFocus
-    , checkboxField
-    , checkboxesField
-    , class
-    , column
-    , columns
-    , controlId
-    , default
-    , empty
-    , fieldset
-    , floatField
-    , htmlAttribute
-    , htmlField
-    , init
-    , inputMode
-    , intField
-    , label
-    , nothingOption
-    , placeholder
-    , radioField
-    , row
-    , rows
-    , selectField
-    , submit
-    , submitOnChange
-    , submitOnForm
-    , submitOnInput
-    , textField
-    , textLabel
-    , textareaField
-    , type_
-    , update
+    ( Model, Msg, init, update, submitOnInput, submitOnChange, submitOnForm
+    , Form, empty, append, appendIf
+    , row, column, fieldset
+    , Field, textField, intField, floatField, textareaField, checkboxField, radioField, selectField, checkboxesField, htmlField, submit
+    , class, controlId, default, htmlAttribute, label, textLabel
+    , autoFocus, columns, inputMode, nothingOption, placeholder, rows, type_
     , view
     )
+
+{-| Builds a form to be used with TEA.
+
+Forms adhere to standard TEA and are a closed abstraction. The final arg is always the `Form` to allow dynamic forms to be passed data that may be wrapped by HTTP requests. This allows default values or control options to be populated by input data.
+
+After an update a a submit strategy can be applied to `Model` allowing you to grab the resulting output. See the `submitOn...` functions.
+
+A form is comprised of fields which have controls that handles data.
+
+  - A field corresponds to an output record field with a setter. It may have an associated error. Examples: a text input or multiple radio buttons.
+  - Controls a field's HTML. For text inputs there is only one control but for radio fields each option will be a separate control.
+  - Data is what a control will emit to the rest of the program. Data always ends up represented as a `String` in HTML.
+
+
+# TEA handling
+
+@docs Model, Msg, init, update, submitOnInput, submitOnChange, submitOnForm, wrapModel view
+
+
+# Creating a form
+
+@docs Form, empty, append, appendIf
+
+
+# Creating nested forms
+
+@docs row, column, fieldset
+
+
+# Creating fields
+
+@docs Field, textField, intField, floatField, textareaField, checkboxField, radioField, selectField, checkboxesField, htmlField, submit
+
+
+# Field attributes common to all
+
+@docs class, controlId, default, htmlAttribute, label, textLabel
+
+
+# Field attributes
+
+@docs autoFocus, columns, inputMode, nothingOption, placeholder, rows, type_
+
+-}
 
 import Dict exposing (Dict)
 import Html exposing (Html)
@@ -49,10 +62,14 @@ import List.Extra as List
 import Set exposing (Set)
 
 
+{-| A form built up from nested fields
+-}
 type Form out
     = Form (List (Field out))
 
 
+{-| A field represents a one or more controls in the form that updates our output record.
+-}
 type Field out
     = Field
         { branch : List (Field out)
@@ -66,6 +83,8 @@ type Field out
 -- Model
 
 
+{-| Our DB. Tracks state of our form in HTML. The database is keyed by field position so dynamically changing fields can cause problems. TODO
+-}
 type Model out
     = Model (Db out)
 
@@ -94,11 +113,15 @@ type alias Db out =
     }
 
 
+{-| Creates a new form DB that relies on field default values or blank.
+-}
 init : out -> Model out
 init emptyOut =
     Model (Db False False False Set.empty Set.empty Set.empty Set.empty Dict.empty False emptyOut)
 
 
+{-| Applies field default values to output
+-}
 applyInit : Form out -> Db out -> Db out
 applyInit (Form fields) db =
     let
@@ -114,13 +137,15 @@ applyInit (Form fields) db =
         db
 
     else
-        traverse initField fields [] { db | appliedInit = True }
+        foldFields initField fields [] { db | appliedInit = True }
 
 
 
 -- Update
 
 
+{-| Contains a state change
+-}
 type Msg out
     = OnInput Key InputEvent
     | OnChange Key
@@ -134,6 +159,8 @@ type InputEvent
     | TargetChecked String Bool
 
 
+{-| Updates our form state. To pull the resulting output, use a submit strategy via the `submitOn...` functions. Use `submitOnInput` to get all changes.
+-}
 update : Msg out -> Model out -> Form out -> Model out
 update msg (Model db0) form =
     let
@@ -260,16 +287,22 @@ onSubmit seen next setter (Model db) =
         ( setter (Model db), Cmd.none )
 
 
+{-| Process output after on immediate (key press) form input. Effectively an auto-submit.
+-}
 submitOnInput : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
 submitOnInput =
     onSubmit .seenInput
 
 
+{-| Process output after a field's control has changed. For example on a checkbox click or after text written to a text field.
+-}
 submitOnChange : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
 submitOnChange =
     onSubmit .seenChange
 
 
+{-| Only process output after a form has been submitted. For example by using a submit button or the user pressing enter on a text field.
+-}
 submitOnForm : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
 submitOnForm =
     onSubmit .seenSubmit
@@ -279,6 +312,8 @@ submitOnForm =
 -- View
 
 
+{-| Renders a composed form. The `String` is the form ID and must be unique for the page. Forms are rendered in field append order. Applies a local stylesheet for minimal styling.
+-}
 view : (Msg out -> msg) -> String -> Model out -> Form out -> Html msg
 view toMsg id (Model db) form =
     let
@@ -334,16 +369,22 @@ viewFields el (Form fields) prefix state =
 -- Creating a form
 
 
+{-| Creates a form with no fields ready to be added.
+-}
 empty : Form out
 empty =
     Form []
 
 
+{-| Adds a field to a form.
+-}
 append : Field out -> Form out -> Form out
 append field (Form fields) =
     Form (fields ++ [ field ])
 
 
+{-| Conditionally adds a field to a form.
+-}
 appendIf : Bool -> Field out -> Form out -> Form out
 appendIf on field form =
     if on then
@@ -357,8 +398,8 @@ appendIf on field form =
 -- Using a form (internally)
 
 
-traverse : (Field out -> Key -> Db out -> Db out) -> List (Field out) -> Key -> Db out -> Db out
-traverse cb fields key db =
+foldFields : (Field out -> Key -> Db out -> Db out) -> List (Field out) -> Key -> Db out -> Db out
+foldFields cb fields key db =
     List.foldl
         (\(Field field) ( i, acc2 ) ->
             let
@@ -367,7 +408,7 @@ traverse cb fields key db =
             in
             ( i + 1
             , cb (Field field) nextKey acc2
-                |> traverse cb field.branch nextKey
+                |> foldFields cb field.branch nextKey
             )
         )
         ( 0, db )
@@ -550,6 +591,8 @@ type alias TextConfig out =
     }
 
 
+{-| Creates a text input field.
+-}
 textField : (String -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
 textField set attrs =
     let
@@ -583,12 +626,16 @@ textField set attrs =
         }
 
 
+{-| A text field that tries to parse its input as an `Int`.
+-}
 intField : (Maybe Int -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
 intField set attrs =
     textField (String.toInt >> set)
         (inputMode "numeric" :: attrs)
 
 
+{-| A text field that tries to parse its input as an `Float`.
+-}
 floatField : (Maybe Float -> out -> out) -> List (Attribute (TextConfig out)) -> Field out
 floatField set attrs =
     textField (String.toFloat >> set)
@@ -608,6 +655,8 @@ type alias TextareaConfig out =
     }
 
 
+{-| Creates a textarea field. Multi-line text input.
+-}
 textareaField : (String -> out -> out) -> List (Attribute (TextareaConfig out)) -> Field out
 textareaField set attrs =
     let
@@ -650,6 +699,8 @@ type alias CheckedConfig out =
     }
 
 
+{-| Creates a checkbox that can be either on or off. If you have multiple values to toggle then checkboxesField may be more useful.
+-}
 checkboxField : (Bool -> out -> out) -> List (Attribute (CheckedConfig out)) -> Field out
 checkboxField set attrs =
     let
@@ -746,6 +797,8 @@ availableOptions none options =
             options2
 
 
+{-| Creates a set of radio controls. The `toString` arg must produce a non-empty and unique value.
+-}
 radioField : OptionArgs option out -> Field out
 radioField args =
     let
@@ -781,6 +834,8 @@ radioField args =
 -- Select field
 
 
+{-| Creates a select field. The `toString` arg must produce a non-empty and unique value.
+-}
 selectField : OptionArgs option out -> Field out
 selectField args =
     let
@@ -825,6 +880,8 @@ type alias CheckboxesArgs option out =
     }
 
 
+{-| Creates a set of checkboxes acting as a field. The `toString` arg must produce a non-empty and unique value. Each checkbox is an `option` that can be toggled. The `set` will receive all options that are toggled on.
+-}
 checkboxesField : CheckboxesArgs option out -> Field out
 checkboxesField args =
     let
@@ -910,11 +967,15 @@ checkboxesField args =
 -- Grouping (nested: Form to Field) fields
 
 
+{-| Turns a nested form into a row field. Each field will appear left to right.
+-}
 row : Form out -> Field out
 row form =
     groupClassField "row" form
 
 
+{-| Turns a nested form into a column. Each field will be shown from top to bottom. Used as the default if no column or row specified.
+-}
 column : Form out -> Field out
 column form =
     groupClassField "column" form
@@ -935,6 +996,8 @@ groupField wrapper (Form fields) =
         }
 
 
+{-| Wraps a form into a fieldset. Takes a title and another form.
+-}
 fieldset : String -> Form out -> Field out
 fieldset title (Form fields) =
     Field
@@ -955,11 +1018,15 @@ fieldset title (Form fields) =
 -- HTML fields
 
 
+{-| Creates a submit button.
+-}
 submit : String -> Field out
 submit l =
     htmlField [ Html.button [ HA.type_ "submit" ] [ Html.text l ] ]
 
 
+{-| Creates a HTML field. It doesn't contain any controls or update the output in any way but allows you to add your own HTML in a form.
+-}
 htmlField : List (Html (Msg out)) -> Field out
 htmlField raw =
     Field
@@ -995,31 +1062,43 @@ withCommon set o =
     { o | common = set o.common }
 
 
+{-| Wraps a control with a HTML based label.
+-}
 label : List (Html (Msg out)) -> Attribute (WithCommon c value out)
 label v =
     withCommon (\c -> { c | label = v })
 
 
+{-| Wraps a control with a text label.
+-}
 textLabel : String -> Attribute (WithCommon c value out)
 textLabel str =
     label [ Html.text str ]
 
 
+{-| Adds an HTML attribute to a control.
+-}
 htmlAttribute : Html.Attribute (Msg out) -> Attribute (WithCommon c value out)
 htmlAttribute attr =
     withCommon (\c -> { c | attrs = c.attrs ++ [ attr ] })
 
 
+{-| Sets the `Html.Attribute.id` of a control.
+-}
 controlId : String -> Attribute (WithCommon c value out)
 controlId =
     HA.id >> htmlAttribute
 
 
+{-| Sets the class of a control.
+-}
 class : String -> Attribute (WithCommon c value out)
 class =
     HA.class >> htmlAttribute
 
 
+{-| Sets the default value for a control. If not set the equivalent of a blank string is used.
+-}
 default : value -> Attribute (WithCommon c value out)
 default get =
     withCommon (\c -> { c | default = get })
@@ -1038,36 +1117,63 @@ attrToConfig zero attr =
     List.foldl (\fn acc -> fn acc) zero attr
 
 
+{-| Sets the `Html.Attribute.autofocus` on text and textarea fields.
+-}
 autoFocus : Bool -> Attribute { c | autoFocus : Bool }
 autoFocus v o =
     { o | autoFocus = v }
 
 
+{-| Sets the number of columns on a textarea field. Should be avoided (use CSS).
+-}
 columns : Int -> Attribute { c | columns : Int }
 columns v o =
     { o | columns = v }
 
 
+{-| Sets the `Html.Attribute.inputmode` a text input. Useful on mobile to show a relevant keyboard.
+-}
 inputMode : String -> Attribute { c | inputMode : String }
 inputMode v o =
     { o | inputMode = v }
 
 
+{-| Sets `Html.Attribute.placeholder` on a text input. Try to avoid this as it (1) vanishes on input, (2) missed by some screen readers, and (3) does not meet minimum contrast requirements. See: <https://design-system.service.gov.uk/components/text-input/#avoid-placeholder-text>
+-}
 placeholder : String -> Attribute { c | placeholder : String }
 placeholder v o =
     { o | placeholder = v }
 
 
+{-| Sets the number of rows on a textarea field.
+-}
 rows : Int -> Attribute { c | rows : Int }
 rows v o =
     { o | rows = v }
 
 
+{-| Sets `Html.Attribute.type_` on a text field. By default "text" is used. Use `checkboxField` for "checkbox" and `radioField` for "radio".
+-}
 type_ : String -> Attribute { c | type_ : String }
 type_ v o =
-    { o | type_ = v }
+    { o
+        | type_ =
+            -- Don't allow checked inputs
+            if v == "checkbox" || v == "radio" then
+                "text"
+
+            else
+                v
+    }
 
 
+{-| For `radioField` and `selectField` the setter function can receive a `Maybe`. This represents an item where an invalid or no option has been selected. For radio fields this means an unchecked state and select fields pick the first item if no default value is set.
+
+The problem is that when a user clicks a radio item they can't go backwards to the previous state. This is considered bad design for forms. However if a value is pre-selected on the page then the user might submit and accidentally miss the field. So you should carefully consider what works best for your forms. Also, sometimes the `Nothing` value is a useful option.
+
+This attribute prefixes the list of options with a nothing option that can be selected. If the no other option is selected (via default or state change) then this nothing option will be pre-selected.
+
+-}
 nothingOption : String -> Attribute { c | nothing : Maybe String }
-nothingOption v o =
-    { o | nothing = Just v }
+nothingOption l o =
+    { o | nothing = Just l }
