@@ -75,6 +75,8 @@ exampleForm =
             Form.textareaField (\v d -> { d | myText = v })
                 [ Form.textLabel "myText"
                 , Form.default "Hello world"
+
+                --, Form.ifBlank "Enter a value"
                 ]
 
         myCheckboxField =
