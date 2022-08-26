@@ -41,7 +41,7 @@ A form is comprised of fields which have controls that handles data.
 @docs Field, textField, intField, floatField, textareaField, checkboxField, radioField, selectField, checkboxesField, htmlField, submit
 
 
-# Field attributes common to all
+# Common field attributes
 
 @docs class, controlId, default, htmlAttribute, label, textLabel
 
@@ -718,14 +718,19 @@ checkboxField set attrs =
                     |> Maybe.withDefault out
         , view =
             \state key ->
-                withRightLabel c.common.label
-                    [ Html.input
-                        (HA.type_ "checkbox"
-                            :: c.common.attrs
-                            ++ checkedAttrs targetCheckedDecoder key boolValue state
-                        )
-                        []
-                    ]
+                let
+                    id =
+                        keyToString key
+                in
+                Html.input
+                    (HA.type_ "checkbox"
+                        :: HA.id id
+                        :: c.common.attrs
+                        ++ checkedAttrs targetCheckedDecoder key boolValue state
+                    )
+                    []
+                    :: ifAttr (not (List.isEmpty c.common.label))
+                        (Html.label [ HA.id id ] c.common.label)
         }
 
 
