@@ -5,7 +5,7 @@ module Form exposing
     , Field, textField, intField, floatField, textareaField, checkboxField, radioField, selectField, checkboxesField, htmlField, submit
     , class, controlId, default, htmlAttribute, label, textLabel
     , autoFocus, columns, inputMode, nothingOption, placeholder, rows, type_
-    , view
+    , view, wrapModel
     )
 
 {-| Builds a form to be used with TEA.
@@ -264,12 +264,13 @@ boolValue =
 onSubmit :
     (Db out -> Bool)
     -> (model -> out -> ( model, Cmd msg ))
-    -> (Model out -> model)
+    -> model
     -> Model out
-    -> ( model, Cmd msg )
-onSubmit seen next setter (Model db) =
-    let
-        resetDb =
+    -> ( ( model, Cmd msg ), Model out )
+onSubmit seen next extModel (Model db) =
+    if seen db then
+        ( next extModel db.output
+        , Model
             { db
                 | seenInput = False
                 , seenChange = False
@@ -277,35 +278,40 @@ onSubmit seen next setter (Model db) =
                 , visitedSinceSubmit = Set.empty
                 , changedSinceSubmit = Set.empty
             }
-    in
-    if seen db then
-        next
-            (setter (Model resetDb))
-            db.output
+        )
 
     else
-        ( setter (Model db), Cmd.none )
+        ( ( extModel, Cmd.none ), Model db )
 
 
 {-| Process output after on immediate (key press) form input. Effectively an auto-submit.
 -}
-submitOnInput : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
+submitOnInput : (model -> out -> ( model, Cmd msg )) -> model -> Model out -> ( ( model, Cmd msg ), Model out )
 submitOnInput =
     onSubmit .seenInput
 
 
 {-| Process output after a field's control has changed. For example on a checkbox click or after text written to a text field.
 -}
-submitOnChange : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
+submitOnChange : (model -> out -> ( model, Cmd msg )) -> model -> Model out -> ( ( model, Cmd msg ), Model out )
 submitOnChange =
     onSubmit .seenChange
 
 
 {-| Only process output after a form has been submitted. For example by using a submit button or the user pressing enter on a text field.
 -}
-submitOnForm : (model -> out -> ( model, Cmd msg )) -> (Model out -> model) -> Model out -> ( model, Cmd msg )
+submitOnForm : (model -> out -> ( model, Cmd msg )) -> model -> Model out -> ( ( model, Cmd msg ), Model out )
 submitOnForm =
     onSubmit .seenSubmit
+
+
+{-| Wraps a Form's model into an outer model. Provider a setter and send the output from an `submitOn...`
+-}
+wrapModel : (model -> Model out -> model) -> ( ( model, Cmd msg ), Model out ) -> ( model, Cmd msg )
+wrapModel setter ( ( extModel, cmd ), ourModel ) =
+    ( setter extModel ourModel
+    , cmd
+    )
 
 
 
