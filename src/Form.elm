@@ -1,11 +1,10 @@
 module Form exposing
-    ( Model, Msg, init, update, submitOnInput, submitOnChange, submitOnForm
+    ( Model, Msg, init, update, submitOnInput, submitOnChange, submitOnForm, wrapModel, view
     , Form, empty, append, appendIf
     , row, column, fieldset
     , Field, textField, intField, floatField, textareaField, checkboxField, radioField, selectField, checkboxesField, htmlField, submit
-    , class, controlId, default, htmlAttribute, label, textLabel
     , autoFocus, columns, inputMode, nothingOption, placeholder, rows, type_
-    , view, wrapModel
+    , class, controlId, default, htmlAttribute, label, textLabel
     )
 
 {-| Builds a form to be used with TEA.
@@ -23,7 +22,7 @@ A form is comprised of fields which have controls that handles data.
 
 # TEA handling
 
-@docs Model, Msg, init, update, submitOnInput, submitOnChange, submitOnForm, wrapModel view
+@docs Model, Msg, init, update, submitOnInput, submitOnChange, submitOnForm, wrapModel, view
 
 
 # Creating a form
@@ -41,14 +40,18 @@ A form is comprised of fields which have controls that handles data.
 @docs Field, textField, intField, floatField, textareaField, checkboxField, radioField, selectField, checkboxesField, htmlField, submit
 
 
-# Common field attributes
-
-@docs class, controlId, default, htmlAttribute, label, textLabel
-
-
 # Field attributes
 
+Attributes can be applied to fields to decorate or change their behaviour.
+
 @docs autoFocus, columns, inputMode, nothingOption, placeholder, rows, type_
+
+
+# Common field attributes
+
+These attributes can be applied to any field attributes.
+
+@docs class, controlId, default, htmlAttribute, label, textLabel
 
 -}
 
@@ -755,20 +758,22 @@ emptyOptionConfig =
     OptionConfig (emptyCommon Nothing) Nothing
 
 
-type alias OptionArgs option out =
-    { set : Maybe option -> out -> out
-    , toString : option -> String
-    , options : List option
-    , attributes : List (Attribute (OptionConfig (Maybe option) out))
-    }
-
-
 optionInit : (option -> String) -> Maybe option -> Maybe InputEvent
 optionInit toString def =
     Maybe.map (toString >> TargetValue) def
 
 
-optionUpdate : OptionArgs option out -> State -> Key -> InputEvent -> out -> out
+optionUpdate :
+    { set : Maybe option -> out -> out
+    , toString : option -> String
+    , options : List option
+    , attributes : List (Attribute (OptionConfig (Maybe option) out))
+    }
+    -> State
+    -> Key
+    -> InputEvent
+    -> out
+    -> out
 optionUpdate args _ _ event out =
     let
         c =
@@ -810,7 +815,13 @@ availableOptions none options =
 
 {-| Creates a set of radio controls. The `toString` arg must produce a non-empty and unique value.
 -}
-radioField : OptionArgs option out -> Field out
+radioField :
+    { set : Maybe option -> out -> out
+    , toString : option -> String
+    , options : List option
+    , attributes : List (Attribute (OptionConfig (Maybe option) out))
+    }
+    -> Field out
 radioField args =
     let
         c =
@@ -847,7 +858,13 @@ radioField args =
 
 {-| Creates a select field. The `toString` arg must produce a non-empty and unique value.
 -}
-selectField : OptionArgs option out -> Field out
+selectField :
+    { set : Maybe option -> out -> out
+    , toString : option -> String
+    , options : List option
+    , attributes : List (Attribute (OptionConfig (Maybe option) out))
+    }
+    -> Field out
 selectField args =
     let
         c =
@@ -883,17 +900,15 @@ type alias CheckboxesConfig option out =
     }
 
 
-type alias CheckboxesArgs option out =
+{-| Creates a set of checkboxes acting as a field. The `toString` arg must produce a non-empty and unique value. Each checkbox is an `option` that can be toggled. The `set` will receive all options that are toggled on.
+-}
+checkboxesField :
     { set : List option -> out -> out
     , toString : option -> String
     , options : List option
     , attributes : List (Attribute (CheckboxesConfig (List option) out))
     }
-
-
-{-| Creates a set of checkboxes acting as a field. The `toString` arg must produce a non-empty and unique value. Each checkbox is an `option` that can be toggled. The `set` will receive all options that are toggled on.
--}
-checkboxesField : CheckboxesArgs option out -> Field out
+    -> Field out
 checkboxesField args =
     let
         c =
