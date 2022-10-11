@@ -255,11 +255,6 @@ eventTargetChecked ev =
             Nothing
 
 
-boolValue : String
-boolValue =
-    "y"
-
-
 
 -- Submission handling
 
@@ -392,7 +387,7 @@ append field (Form fields) =
     Form (fields ++ [ field ])
 
 
-{-| Conditionally adds a field to a form.
+{-| Conditionally adds a field to a form. TODO: this doesn't play well with dynamic forms
 -}
 appendIf : Bool -> Field out -> Form out -> Form out
 appendIf on field form =
@@ -715,6 +710,9 @@ checkboxField set attrs =
     let
         c =
             attrToConfig (CheckedConfig (emptyCommon False)) attrs
+
+        boolValue =
+            "y"
     in
     Field
         { branch = noBranch

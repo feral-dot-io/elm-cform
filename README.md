@@ -9,7 +9,7 @@ High-level TODO:
 - Using in unstructured ways.
 
 More detailed notes on next steps:
-- Attributes on fields.
+- Attributes to control field HTML.
 - Review MDN docs for more attributes on controls.
 - Fields should get an optional ID. This ID should then be used on the field and as a DB state key. This should avoid DB reusing state with dynamic fields.
 - Key needs to be `List String` with the first element being our ID (part of solving dynamic fields).
